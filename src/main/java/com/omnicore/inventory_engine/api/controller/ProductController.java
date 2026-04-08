@@ -1,0 +1,41 @@
+package com.omnicore.inventory_engine.api.controller;
+
+import com.omnicore.inventory_engine.api.dto.CreateProductRequest;
+import com.omnicore.inventory_engine.api.dto.ProductResponse;
+import com.omnicore.inventory_engine.domain.service.ProductService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+// TODO Phase 4: reemplazar @RequestHeader("X-Tenant-ID") por extracción desde JWT/SecurityContext
+@RestController
+@RequestMapping("/api/v1/products")
+@RequiredArgsConstructor
+public class ProductController {
+
+    private final ProductService productService;
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public ProductResponse create(
+            @RequestHeader("X-Tenant-ID") String tenantId,
+            @Valid @RequestBody CreateProductRequest request) {
+        return productService.createProduct(tenantId, request);
+    }
+
+    @GetMapping
+    public List<ProductResponse> findAll(
+            @RequestHeader("X-Tenant-ID") String tenantId) {
+        return productService.findAllByTenant(tenantId);
+    }
+
+    @GetMapping("/{sku}")
+    public ProductResponse findBySku(
+            @RequestHeader("X-Tenant-ID") String tenantId,
+            @PathVariable String sku) {
+        return productService.findByTenantAndSku(tenantId, sku);
+    }
+}
