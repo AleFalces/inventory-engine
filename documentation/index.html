@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OmniCore Inventory Engine — Guía para Desarrolladores</title>
+  <style>
+    /* ── Reset & Base ───────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0f1117;
+      --surface:    #1a1d27;
+      --surface2:   #22263a;
+      --border:     #2e3350;
+      --accent:     #6c8ef5;
+      --accent2:    #a78bfa;
+      --green:      #34d399;
+      --yellow:     #fbbf24;
+      --red:        #f87171;
+      --text:       #e2e8f0;
+      --text-muted: #8892b0;
+      --radius:     10px;
+      --font-mono:  'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 16px;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────── */
+    .layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ────────────────────────────────────────────── */
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 2rem 1.5rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .sidebar-logo {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 0.25rem;
+      letter-spacing: 0.5px;
+    }
+
+    .sidebar-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+    }
+
+    .sidebar nav a {
+      display: block;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      margin-bottom: 2px;
+      transition: all 0.15s;
+      border-left: 2px solid transparent;
+    }
+
+    .sidebar nav a:hover {
+      color: var(--text);
+      background: var(--surface2);
+      border-left-color: var(--accent);
+    }
+
+    .sidebar nav .section-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      padding: 1rem 0.75rem 0.4rem;
+    }
+
+    /* ── Main content ───────────────────────────────────────── */
+    .main {
+      padding: 3rem 4rem;
+      max-width: 900px;
+    }
+
+    /* ── Hero ───────────────────────────────────────────────── */
+    .hero {
+      margin-bottom: 3.5rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: rgba(108,142,245,0.12);
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+      border: 1px solid rgba(108,142,245,0.3);
+      margin-bottom: 1rem;
+    }
+
+    .hero h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, #e2e8f0 0%, #6c8ef5 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 600px;
+    }
+
+    /* ── Section ────────────────────────────────────────────── */
+    .section {
+      margin-bottom: 3.5rem;
+      scroll-margin-top: 2rem;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .section-number {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(108,142,245,0.15);
+      border: 1px solid rgba(108,142,245,0.4);
+      color: var(--accent);
+      font-size: 0.8rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    h2 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--accent2);
+      margin: 1.5rem 0 0.6rem;
+    }
+
+    p { color: var(--text-muted); margin-bottom: 0.85rem; }
+    p strong { color: var(--text); }
+
+    /* ── Cards ──────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .card h4 {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.3rem;
+    }
+
+    .card p {
+      font-size: 0.83rem;
+      margin: 0;
+    }
+
+    /* ── Callouts ───────────────────────────────────────────── */
+    .callout {
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      margin: 1.25rem 0;
+      border-left: 3px solid;
+      font-size: 0.9rem;
+    }
+
+    .callout-why {
+      background: rgba(108,142,245,0.08);
+      border-color: var(--accent);
+    }
+
+    .callout-warning {
+      background: rgba(251,191,36,0.08);
+      border-color: var(--yellow);
+    }
+
+    .callout-tip {
+      background: rgba(52,211,153,0.08);
+      border-color: var(--green);
+    }
+
+    .callout-label {
+      font-weight: 700;
+      font-size: 0.75rem;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 0.3rem;
+    }
+
+    .callout-why .callout-label   { color: var(--accent); }
+    .callout-warning .callout-label { color: var(--yellow); }
+    .callout-tip .callout-label   { color: var(--green); }
+
+    .callout p { margin: 0; color: var(--text-muted); }
+
+    /* ── Code blocks ────────────────────────────────────────── */
+    pre {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+      font-family: var(--font-mono);
+      font-size: 0.83rem;
+      line-height: 1.6;
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.85em;
+      background: rgba(108,142,245,0.12);
+      color: var(--accent);
+      padding: 0.1em 0.4em;
+      border-radius: 4px;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      color: #abb2bf;
+      font-size: 1em;
+    }
+
+    /* Syntax highlight colors */
+    .kw  { color: #c678dd; }
+    .cl  { color: #e5c07b; }
+    .fn  { color: #61afef; }
+    .st  { color: #98c379; }
+    .cm  { color: #5c6370; font-style: italic; }
+    .an  { color: #e5c07b; }
+    .nu  { color: #d19a66; }
+
+    /* ── File tree ──────────────────────────────────────────── */
+    .file-tree {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.83rem;
+      line-height: 1.8;
+    }
+
+    .file-tree .dir  { color: var(--accent); font-weight: 600; }
+    .file-tree .file { color: #abb2bf; }
+    .file-tree .new  { color: var(--green); }
+    .file-tree .note { color: var(--text-muted); font-style: italic; }
+
+    /* ── Table ──────────────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.88rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 0.6rem 1rem;
+      background: var(--surface2);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-muted);
+      vertical-align: top;
+    }
+
+    td strong { color: var(--text); }
+    tr:last-child td { border-bottom: none; }
+
+    /* ── Step timeline ──────────────────────────────────────── */
+    .timeline { margin: 1.5rem 0; }
+
+    .timeline-item {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .timeline-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-top: 7px;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .timeline-dot::after {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 10px;
+      width: 1px;
+      height: calc(100% + 1.5rem + 4px);
+      background: var(--border);
+    }
+
+    .timeline-item:last-child .timeline-dot::after { display: none; }
+
+    .timeline-content h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+
+    .timeline-content p {
+      font-size: 0.85rem;
+      margin: 0;
+    }
+
+    /* ── Badge ──────────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.15rem 0.55rem;
+      border-radius: 20px;
+      letter-spacing: 0.3px;
+    }
+
+    .badge-green  { background: rgba(52,211,153,0.15); color: var(--green); }
+    .badge-blue   { background: rgba(108,142,245,0.15); color: var(--accent); }
+    .badge-purple { background: rgba(167,139,250,0.15); color: var(--accent2); }
+    .badge-yellow { background: rgba(251,191,36,0.15); color: var(--yellow); }
+
+    /* ── Divider ────────────────────────────────────────────── */
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2.5rem 0;
+    }
+
+    /* ── Footer ─────────────────────────────────────────────── */
+    .footer {
+      margin-top: 4rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Responsive ─────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .main { padding: 2rem 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ══ SIDEBAR ══════════════════════════════════════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">OmniCore</div>
+    <div class="sidebar-sub">Inventory Engine — Docs v0.1</div>
+    <nav>
+      <div class="section-title">Introducción</div>
+      <a href="#que-es">¿Qué es este proyecto?</a>
+      <a href="#stack">El stack tecnológico</a>
+
+      <div class="section-title">Conceptos clave</div>
+      <a href="#multitenancy">Multi-tenancy</a>
+      <a href="#tdd">TDD — Tests primero</a>
+      <a href="#testcontainers">Testcontainers</a>
+
+      <div class="section-title">Lo que construimos</div>
+      <a href="#estructura">Estructura del proyecto</a>
+      <a href="#entity">La entidad Product</a>
+      <a href="#repository">ProductRepository</a>
+      <a href="#tests">Los tests</a>
+
+      <div class="section-title">Comandos</div>
+      <a href="#comandos">Referencia rápida</a>
+    </nav>
+  </aside>
+
+  <!-- ══ MAIN ══════════════════════════════════════════════════ -->
+  <main class="main">
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="hero-badge">Guía para desarrolladores Jr / Trainee</div>
+      <h1>OmniCore Inventory Engine</h1>
+      <p>
+        Una guía paso a paso de lo que construimos, por qué tomamos cada decisión,
+        y cómo entender el código si es la primera vez que trabajás con Java y Spring Boot.
+        No se asume experiencia previa en Java.
+      </p>
+    </div>
+
+    <!-- ══ 1. QUÉ ES ESTE PROYECTO ══════════════════════════════ -->
+    <section class="section" id="que-es">
+      <div class="section-header">
+        <div class="section-number">1</div>
+        <h2>¿Qué es este proyecto?</h2>
+      </div>
+
+      <p>
+        <strong>OmniCore Inventory Engine</strong> es un sistema backend que gestiona el inventario
+        de productos para múltiples empresas al mismo tiempo. Pensalo como el motor que está
+        detrás de una tienda online: lleva el control de cuántos productos hay en stock,
+        permite agregarlos, modificarlos y consultarlos.
+      </p>
+
+      <p>
+        Lo que hace especial a este sistema es que está diseñado para ser usado por
+        <strong>muchas empresas distintas a la vez</strong> (como un SaaS), manteniendo los datos
+        de cada una completamente separados y seguros.
+      </p>
+
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-icon">🏭</div>
+          <h4>Motor de inventario</h4>
+          <p>Gestiona stock de productos en tiempo real con alta concurrencia.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🏢</div>
+          <h4>Multi-empresa (SaaS)</h4>
+          <p>Múltiples clientes usan el mismo sistema, aislados entre sí.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🔒</div>
+          <h4>Seguridad por diseño</h4>
+          <p>La separación de datos es la prioridad número uno.</p>
+        </div>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- ══ 2. STACK TECNOLÓGICO ══════════════════════════════════ -->
+    <section class="section" id="stack">
+      <div class="section-header">
+        <div class="section-number">2</div>
+        <h2>El stack tecnológico</h2>
+      </div>
+
+      <p>
+        Si venís de JavaScript/Python, algunos de estos nombres son nuevos. Acá te explicamos
+        qué hace cada uno y por qué lo elegimos.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Tecnología</th>
+            <th>¿Qué es?</th>
+            <th>¿Por qué la usamos?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Java 21</strong></td>
+            <td>El lenguaje de programación. Como Python pero con tipos estrictos.</td>
+            <td>Maduro, rápido, y dominante en backends empresariales.</td>
+          </tr>
+          <tr>
+            <td><strong>Spring Boot</strong></td>
+            <td>Un framework para Java. Como Express.js pero para Java.</td>
+            <td>Arranca una app completa con muy poco código de configuración.</td>
+          </tr>
+          <tr>
+            <td><strong>PostgreSQL</strong></td>
+            <td>La base de datos. Como MySQL pero más potente.</td>
+            <td>Soporte nativo para concurrencia, tipos avanzados y transacciones robustas.</td>
+          </tr>
+          <tr>
+            <td><strong>JPA / Hibernate</strong></td>
+            <td>Una capa que conecta Java con la base de datos.</td>
+            <td>Escribís clases Java y él genera el SQL automáticamente.</td>
+          </tr>
+          <tr>
+            <td><strong>Lombok</strong></td>
+            <td>Una librería que genera código repetitivo automáticamente.</td>
+            <td>Evita escribir getters, setters y constructores a mano.</td>
+          </tr>
+          <tr>
+            <td><strong>MapStruct</strong></td>
+            <td>Convierte objetos de un tipo a otro automáticamente.</td>
+            <td>Evita copiar campos a mano entre la entidad y el DTO.</td>
+          </tr>
+          <tr>
+            <td><strong>Testcontainers</strong></td>
+            <td>Levanta una base de datos real en Docker para los tests.</td>
+            <td>Los tests son 100% fieles a producción. Sin sorpresas.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <hr />
+
+    <!-- ══ 3. MULTI-TENANCY ══════════════════════════════════════ -->
+    <section class="section" id="multitenancy">
+      <div class="section-header">
+        <div class="section-number">3</div>
+        <h2>Multi-tenancy: el concepto más importante</h2>
+      </div>
+
+      <p>
+        <strong>Tenant</strong> = cliente / empresa. Multi-tenancy significa que el sistema
+        sirve a muchas empresas al mismo tiempo, en una sola instalación.
+      </p>
+
+      <p>
+        Imaginá que sos dueño de un edificio con muchos departamentos. Cada familia (tenant)
+        tiene su espacio privado. Comparten el edificio, pero nunca pueden entrar al departamento
+        de otro. Eso es lo que hacemos con los datos.
+      </p>
+
+      <h3>¿Cómo lo implementamos?</h3>
+
+      <p>
+        Usamos la estrategia más simple: <strong>una sola base de datos, una sola tabla</strong>,
+        pero cada fila tiene una columna <code>tenant_id</code> que identifica a qué empresa pertenece.
+      </p>
+
+      <pre><code><span class="cm">-- Tabla products en PostgreSQL</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> products;
+
+<span class="cm"> id | tenant_id      | sku      | name          | stock</span>
+<span class="cm">----+----------------+----------+---------------+-------</span>
+<span class="cm">  1 | empresa-alpha  | SKU-001  | Widget Pro    |   100  ← empresa A</span>
+<span class="cm">  2 | empresa-alpha  | SKU-002  | Gadget X      |    50  ← empresa A</span>
+<span class="cm">  3 | empresa-beta   | SKU-001  | Widget Pro    |   200  ← empresa B (¡mismo SKU, diferente empresa!)</span></code></pre>
+
+      <div class="callout callout-why">
+        <div class="callout-label">¿Por qué este enfoque?</div>
+        <p>
+          Alternativas más complejas como una base de datos por tenant o un schema por tenant
+          son más caras de mantener. Con una sola base de datos, una sola migración actualiza
+          a todos los clientes. La seguridad la garantizamos en el código.
+        </p>
+      </div>
+
+      <h3>Las 3 reglas de oro del aislamiento</h3>
+
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>1. Toda entidad tiene <code>tenantId</code></h4>
+            <p>Si falta este campo en una tabla, es un bug crítico de seguridad.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>2. Todo query filtra por <code>tenantId</code></h4>
+            <p>
+              Nunca <code>findAll()</code>. Siempre <code>findAllByTenantId("empresa-alpha")</code>.
+              Si buscás por ID, también: <code>findByTenantIdAndId("empresa-alpha", 1)</code>.
+            </p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>3. El <code>tenantId</code> nunca viene del usuario</h4>
+            <p>
+              El servidor lo obtiene del token de autenticación. Un usuario no puede
+              mentir y decir que es de otra empresa.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout-warning">
+        <div class="callout-label">Regla crítica</div>
+        <p>
+          Un bug que deje a un cliente ver datos de otro cliente es un incidente de seguridad
+          gravísimo (P0). Esta regla no es negociable en ninguna parte del código.
+        </p>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- ══ 4. TDD ════════════════════════════════════════════════ -->
+    <section class="section" id="tdd">
+      <div class="section-header">
+        <div class="section-number">4</div>
+        <h2>TDD — Tests primero, código después</h2>
+      </div>
+
+      <p>
+        TDD (Test Driven Development) es una metodología donde <strong>primero escribís el test
+        que falla</strong>, y después escribís el código mínimo para que ese test pase.
+        Parece al revés, pero tiene mucho sentido.
+      </p>
+
+      <div class="card-grid">
+        <div class="card">
+          <h4>🔴 Red</h4>
+          <p>Escribís el test. Falla porque el código no existe todavía. Eso está bien.</p>
+        </div>
+        <div class="card">
+          <h4>🟢 Green</h4>
+          <p>Escribís el código mínimo para que el test pase. Sin agregar de más.</p>
+        </div>
+        <div class="card">
+          <h4>🔵 Refactor</h4>
+          <p>Mejorás el código sin romper los tests. Limpieza sin miedo.</p>
+        </div>
+      </div>
+
+      <div class="callout callout-why">
+        <div class="callout-label">¿Por qué trabajar así?</div>
+        <p>
+          Los tests son la red de seguridad del proyecto. Si en el futuro alguien cambia
+          un método y rompe algo, los tests lo detectan antes de que llegue a producción.
+          También obligan a diseñar código que sea fácil de testear, lo que suele significar
+          código más simple y limpio.
+        </p>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- ══ 5. TESTCONTAINERS ══════════════════════════════════════ -->
+    <section class="section" id="testcontainers">
+      <div class="section-header">
+        <div class="section-number">5</div>
+        <h2>Testcontainers — Base de datos real en tests</h2>
+      </div>
+
+      <p>
+        Cuando corrés los tests, Testcontainers <strong>levanta automáticamente un contenedor
+        Docker con PostgreSQL</strong>, conecta Spring Boot a él, corre todos los tests, y
+        destruye el contenedor al final. Todo sin que tengas que hacer nada.
+      </p>
+
+      <pre><code><span class="cm">// src/test/java/.../TestcontainersConfiguration.java</span>
+<span class="an">@Bean</span>
+<span class="an">@ServiceConnection</span>  <span class="cm">// ← Spring Boot detecta la URL sola, sin config manual</span>
+<span class="kw">public</span> <span class="cl">PostgreSQLContainer</span> postgresContainer() {
+    <span class="kw">return new</span> <span class="cl">PostgreSQLContainer</span>(<span class="st">"postgres:latest"</span>);
+}</code></pre>
+
+      <h3>¿Por qué no usamos H2 (base de datos en memoria)?</h3>
+
+      <table>
+        <thead>
+          <tr><th></th><th>H2 en memoria</th><th>Testcontainers (PostgreSQL real)</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Velocidad</td>
+            <td>Muy rápido</td>
+            <td>Algo más lento (levanta Docker)</td>
+          </tr>
+          <tr>
+            <td>Fidelidad</td>
+            <td>Simula SQL, con diferencias</td>
+            <td>Idéntico a producción</td>
+          </tr>
+          <tr>
+            <td>Sorpresas en producción</td>
+            <td><strong>Frecuentes</strong></td>
+            <td><strong>Ninguna</strong></td>
+          </tr>
+          <tr>
+            <td>Tipos nativos de Postgres</td>
+            <td>No soporta (UUID, JSONB…)</td>
+            <td>Funciona igual que en prod</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-tip">
+        <div class="callout-label">Analogía</div>
+        <p>
+          Testear con H2 en lugar de PostgreSQL es como ensayar una cirugía en un maniquí
+          de plástico. Testcontainers usa el "paciente real" en un entorno controlado.
+        </p>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- ══ 6. ESTRUCTURA ══════════════════════════════════════════ -->
+    <section class="section" id="estructura">
+      <div class="section-header">
+        <div class="section-number">6</div>
+        <h2>Estructura del proyecto</h2>
+      </div>
+
+      <p>
+        Toda la lógica vive en el paquete <code>com.omnicore.inventory_engine</code>.
+        Dentro, organizamos el código en capas.
+      </p>
+
+      <div class="file-tree">
+        <span class="dir">src/</span><br />
+        &nbsp;&nbsp;<span class="dir">main/java/com/omnicore/inventory_engine/</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">InventoryEngineApplication.java</span> &nbsp;<span class="note">← punto de entrada de la app</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">domain/</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">entity/</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">Product.java</span> &nbsp;<span class="note">← la tabla "products" en Java</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">repository/</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">ProductRepository.java</span> &nbsp;<span class="note">← queries a la base de datos</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">service/</span> &nbsp;<span class="note">← (próximamente) lógica de negocio</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">api/</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">controller/</span> &nbsp;<span class="note">← (próximamente) endpoints REST</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">dto/</span> &nbsp;<span class="note">← (próximamente) lo que ve el mundo exterior</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">mapper/</span> &nbsp;<span class="note">← (próximamente) MapStruct</span><br />
+        <br />
+        &nbsp;&nbsp;<span class="dir">test/java/com/omnicore/inventory_engine/</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">TestcontainersConfiguration.java</span> &nbsp;<span class="note">← levanta PostgreSQL en Docker</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">domain/repository/</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">ProductRepositoryTest.java</span> &nbsp;<span class="note">← 4 tests de persistencia</span><br />
+        &nbsp;&nbsp;<span class="dir">test/resources/</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="new">application.properties</span> &nbsp;<span class="note">← config solo para tests (create-drop)</span>
+      </div>
+
+      <h3>¿Por qué separar en <code>domain</code> y <code>api</code>?</h3>
+      <p>
+        <strong>domain</strong> es el corazón del sistema: las reglas de negocio, la base de datos,
+        la lógica. No sabe nada de HTTP ni de cómo se ve la respuesta.
+      </p>
+      <p>
+        <strong>api</strong> es la fachada: lo que el mundo exterior ve. Transforma los datos
+        del dominio en respuestas HTTP limpias. Si mañana queremos agregar una API GraphQL,
+        solo tocamos <code>api/</code> sin tocar el dominio.
+      </p>
+    </section>
+
+    <hr />
+
+    <!-- ══ 7. ENTIDAD PRODUCT ════════════════════════════════════ -->
+    <section class="section" id="entity">
+      <div class="section-header">
+        <div class="section-number">7</div>
+        <h2>La entidad Product</h2>
+      </div>
+
+      <p>
+        Una <strong>entidad</strong> en JPA es una clase Java que representa una tabla en la
+        base de datos. Cada instancia de la clase es una fila en esa tabla.
+      </p>
+
+      <pre><code><span class="an">@Entity</span>                          <span class="cm">// ← "esta clase es una tabla"</span>
+<span class="an">@Table</span>(name = <span class="st">"products"</span>)         <span class="cm">// ← nombre de la tabla en PostgreSQL</span>
+<span class="an">@Getter @Setter</span>                  <span class="cm">// ← Lombok genera getters y setters</span>
+<span class="an">@NoArgsConstructor</span>               <span class="cm">// ← Lombok genera constructor vacío (JPA lo necesita)</span>
+<span class="an">@AllArgsConstructor @Builder</span>     <span class="cm">// ← Lombok genera constructor completo y patrón Builder</span>
+<span class="kw">public class</span> <span class="cl">Product</span> {
+
+    <span class="an">@Id</span>
+    <span class="an">@GeneratedValue</span>(strategy = GenerationType.IDENTITY)
+    <span class="kw">private</span> <span class="cl">Long</span> id;              <span class="cm">// ← la base de datos asigna el ID automáticamente</span>
+
+    <span class="an">@Column</span>(name = <span class="st">"tenant_id"</span>, nullable = <span class="kw">false</span>)
+    <span class="kw">private</span> <span class="cl">String</span> tenantId;       <span class="cm">// ← a qué empresa pertenece este producto</span>
+
+    <span class="an">@Column</span>(nullable = <span class="kw">false</span>)
+    <span class="kw">private</span> <span class="cl">String</span> sku;            <span class="cm">// ← código único del producto por empresa</span>
+
+    <span class="an">@Column</span>(nullable = <span class="kw">false</span>)
+    <span class="kw">private</span> <span class="cl">String</span> name;           <span class="cm">// ← nombre del producto</span>
+
+    <span class="kw">private</span> <span class="cl">String</span> description;    <span class="cm">// ← opcional, puede ser null</span>
+
+    <span class="an">@Column</span>(nullable = <span class="kw">false</span>)
+    <span class="kw">private</span> <span class="cl">Integer</span> stock;         <span class="cm">// ← unidades disponibles</span>
+
+    <span class="an">@Version</span>
+    <span class="kw">private</span> <span class="cl">Long</span> version;          <span class="cm">// ← protección contra escrituras simultáneas</span>
+}</code></pre>
+
+      <h3>¿Qué es <code>@Version</code>?</h3>
+      <p>
+        Imaginá que dos usuarios compran el último producto al mismo tiempo.
+        Sin protección, los dos podrían decrementar el stock y quedarte con un número
+        negativo. <code>@Version</code> implementa <strong>bloqueo optimista</strong>:
+        cada vez que se modifica una fila, el número de versión sube. Si dos personas
+        intentan modificar la misma fila al mismo tiempo, la segunda recibe un error
+        y debe reintentar. Esto es esencial en un motor de inventario.
+      </p>
+
+      <h3>¿Qué es Lombok?</h3>
+      <p>
+        En Java "puro", tendrías que escribir a mano docenas de líneas de código repetitivo
+        (getters, setters, constructores). <strong>Lombok</strong> las genera automáticamente
+        durante la compilación con solo una anotación. El código es más corto y legible,
+        sin perder funcionalidad.
+      </p>
+    </section>
+
+    <hr />
+
+    <!-- ══ 8. PRODUCT REPOSITORY ═════════════════════════════════ -->
+    <section class="section" id="repository">
+      <div class="section-header">
+        <div class="section-number">8</div>
+        <h2>ProductRepository — Hablar con la base de datos</h2>
+      </div>
+
+      <p>
+        El repositorio es la única parte del código que hace queries a la base de datos.
+        Con Spring Data JPA, en muchos casos <strong>solo definís la firma del método
+        y Spring genera el SQL automáticamente</strong>.
+      </p>
+
+      <pre><code><span class="kw">public interface</span> <span class="cl">ProductRepository</span> <span class="kw">extends</span> <span class="cl">JpaRepository</span>&lt;<span class="cl">Product</span>, <span class="cl">Long</span>&gt; {
+
+    <span class="cm">// Spring genera: SELECT * FROM products WHERE tenant_id = ?</span>
+    <span class="cl">List</span>&lt;<span class="cl">Product</span>&gt; <span class="fn">findAllByTenantId</span>(<span class="cl">String</span> tenantId);
+
+    <span class="cm">// Spring genera: SELECT * FROM products WHERE tenant_id = ? AND sku = ?</span>
+    <span class="cl">Optional</span>&lt;<span class="cl">Product</span>&gt; <span class="fn">findByTenantIdAndSku</span>(<span class="cl">String</span> tenantId, <span class="cl">String</span> sku);
+
+    <span class="cm">// Spring genera: SELECT * FROM products WHERE tenant_id = ? AND id = ?</span>
+    <span class="cm">// Protege el GET por ID: aunque alguien adivine un ID ajeno, retorna vacío</span>
+    <span class="cl">Optional</span>&lt;<span class="cl">Product</span>&gt; <span class="fn">findByTenantIdAndId</span>(<span class="cl">String</span> tenantId, <span class="cl">Long</span> id);
+}</code></pre>
+
+      <div class="callout callout-why">
+        <div class="callout-label">¿Por qué usamos Optional?</div>
+        <p>
+          <code>Optional&lt;Product&gt;</code> es como decirle a quien llama al método:
+          "puede que encuentre el producto, o puede que no". Obliga al código que lo usa
+          a manejar el caso donde no existe, evitando el clásico error
+          <code>NullPointerException</code>.
+        </p>
+      </div>
+
+      <div class="callout callout-warning">
+        <div class="callout-label">Regla de aislamiento</div>
+        <p>
+          Notá que <strong>ningún método</strong> permite consultar sin <code>tenantId</code>.
+          Si alguien quisiera agregar un <code>findBySku(String sku)</code>, devolvería
+          resultados de todos los tenants — eso está prohibido.
+        </p>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- ══ 9. LOS TESTS ══════════════════════════════════════════ -->
+    <section class="section" id="tests">
+      <div class="section-header">
+        <div class="section-number">9</div>
+        <h2>Los tests — Qué validamos y por qué</h2>
+      </div>
+
+      <p>
+        Tenemos 4 tests en <code>ProductRepositoryTest</code>. Cada uno valida una
+        responsabilidad distinta.
+      </p>
+
+      <div class="card">
+        <h4>
+          <span class="badge badge-green">TEST 1</span>
+          &nbsp; shouldPersistProductWithAllFields
+        </h4>
+        <p style="margin-top:0.5rem;">
+          Guarda un producto y verifica que la base de datos le asignó un ID y una versión.
+          Confirma que el mapeo entre la clase Java y la tabla SQL es correcto.
+        </p>
+      </div>
+
+      <div class="card">
+        <h4>
+          <span class="badge badge-blue">TEST 2</span>
+          &nbsp; shouldIsolateDataBetweenTenants
+        </h4>
+        <p style="margin-top:0.5rem;">
+          Crea productos de dos empresas distintas. Confirma que al buscar los de la empresa A,
+          no aparecen los de la empresa B. <strong>Este es el test de seguridad más importante.</strong>
+        </p>
+      </div>
+
+      <div class="card">
+        <h4>
+          <span class="badge badge-purple">TEST 3</span>
+          &nbsp; shouldFindProductByTenantIdAndSku
+        </h4>
+        <p style="margin-top:0.5rem;">
+          Verifica que podés encontrar un producto específico usando la combinación
+          empresa + código de producto (SKU).
+        </p>
+      </div>
+
+      <div class="card">
+        <h4>
+          <span class="badge badge-yellow">TEST 4</span>
+          &nbsp; shouldNotFindProductByIdFromDifferentTenant
+        </h4>
+        <p style="margin-top:0.5rem;">
+          Escenario de ataque: la empresa B intenta acceder a un registro usando el ID
+          de un producto de la empresa A. El resultado debe ser vacío. Si este test falla,
+          hay una brecha de seguridad.
+        </p>
+      </div>
+
+      <div class="callout callout-tip">
+        <div class="callout-label">Para correr los tests</div>
+        <p>Necesitás Docker corriendo. Luego: <code>./mvnw test -Dtest=ProductRepositoryTest</code></p>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- ══ 10. COMANDOS ══════════════════════════════════════════ -->
+    <section class="section" id="comandos">
+      <div class="section-header">
+        <div class="section-number">10</div>
+        <h2>Referencia rápida de comandos</h2>
+      </div>
+
+      <table>
+        <thead>
+          <tr><th>Acción</th><th>Comando</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Compilar sin ejecutar tests</td>
+            <td><code>./mvnw clean install -DskipTests</code></td>
+          </tr>
+          <tr>
+            <td>Ejecutar todos los tests</td>
+            <td><code>./mvnw test</code></td>
+          </tr>
+          <tr>
+            <td>Ejecutar un test específico</td>
+            <td><code>./mvnw test -Dtest=ProductRepositoryTest</code></td>
+          </tr>
+          <tr>
+            <td>Ver el historial de commits</td>
+            <td><code>git log --oneline</code></td>
+          </tr>
+          <tr>
+            <td>Subir cambios a GitHub</td>
+            <td><code>git push</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- FOOTER -->
+    <div class="footer">
+      <p>
+        OmniCore Inventory Engine — Documentación interna &nbsp;·&nbsp;
+        Actualizado: Abril 2026 &nbsp;·&nbsp;
+        <span class="badge badge-blue">v0.1 — Phase 1: Product persistence</span>
+      </p>
+      <p style="margin-top:0.5rem;">
+        Este archivo se actualiza con cada fase del proyecto. Si encontrás algo desactualizado,
+        avisá al equipo.
+      </p>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>
