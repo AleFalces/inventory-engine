@@ -440,7 +440,9 @@
       <a href="#estructura">Estructura del proyecto</a>
       <a href="#entity">La entidad Product</a>
       <a href="#repository">ProductRepository</a>
-      <a href="#tests">Los tests</a>
+      <a href="#service">Capa de Servicio</a>
+      <a href="#controller">API REST</a>
+      <a href="#tests">Los tests (15)</a>
 
       <div class="section-title">Comandos</div>
       <a href="#comandos">Referencia rápida</a>
@@ -911,66 +913,277 @@
 
     <hr />
 
-    <!-- ══ 9. LOS TESTS ══════════════════════════════════════════ -->
-    <section class="section" id="tests">
+    <!-- ══ 9. CAPA DE SERVICIO ══════════════════════════════════════ -->
+    <section class="section" id="service">
       <div class="section-header">
         <div class="section-number">9</div>
-        <h2>Los tests — Qué validamos y por qué</h2>
+        <h2>Capa de Servicio — La lógica de negocio</h2>
       </div>
 
       <p>
-        Tenemos 4 tests en <code>ProductRepositoryTest</code>. Cada uno valida una
-        responsabilidad distinta.
+        El servicio es el cerebro de la aplicación. Conecta el repositorio (base de datos)
+        con el controller (API). Aquí viven las <strong>reglas de negocio</strong>:
+        qué está permitido hacer y qué no.
       </p>
 
-      <div class="card">
-        <h4>
-          <span class="badge badge-green">TEST 1</span>
-          &nbsp; shouldPersistProductWithAllFields
-        </h4>
-        <p style="margin-top:0.5rem;">
-          Guarda un producto y verifica que la base de datos le asignó un ID y una versión.
-          Confirma que el mapeo entre la clase Java y la tabla SQL es correcto.
+      <h3>Los DTOs — Records de Java</h3>
+
+      <p>
+        Un <strong>DTO</strong> (Data Transfer Object) es el objeto que viaja entre capas.
+        Usamos <strong>Java Records</strong> porque son inmutables por diseño: una vez creados,
+        no se pueden modificar. Perfecto para datos que solo transportan información.
+      </p>
+
+      <pre><code><span class="cm">// Entrada: lo que recibe el sistema del cliente</span>
+<span class="kw">public record</span> <span class="cl">CreateProductRequest</span>(
+    <span class="an">@NotBlank</span> <span class="cl">String</span> sku,
+    <span class="an">@NotBlank</span> <span class="cl">String</span> name,
+               <span class="cl">String</span> description,
+    <span class="an">@NotNull @Min</span>(<span class="nu">0</span>) <span class="cl">Integer</span> stock
+) {}
+
+<span class="cm">// Salida: lo que el sistema devuelve al cliente</span>
+<span class="kw">public record</span> <span class="cl">ProductResponse</span>(
+    <span class="cl">Long</span> id, <span class="cl">String</span> tenantId, <span class="cl">String</span> sku,
+    <span class="cl">String</span> name, <span class="cl">String</span> description, <span class="cl">Integer</span> stock
+) {}</code></pre>
+
+      <div class="callout callout-why">
+        <div class="callout-label">¿Por qué separar entrada y salida?</div>
+        <p>
+          El cliente no debe poder enviar el <code>id</code> ni el <code>tenantId</code> —
+          esos los asigna el servidor. El record de entrada solo tiene los campos
+          que el cliente tiene derecho a definir.
         </p>
       </div>
 
-      <div class="card">
-        <h4>
-          <span class="badge badge-blue">TEST 2</span>
-          &nbsp; shouldIsolateDataBetweenTenants
-        </h4>
-        <p style="margin-top:0.5rem;">
-          Crea productos de dos empresas distintas. Confirma que al buscar los de la empresa A,
-          no aparecen los de la empresa B. <strong>Este es el test de seguridad más importante.</strong>
+      <h3>MapStruct — Conversión automática entre objetos</h3>
+
+      <p>
+        <strong>MapStruct</strong> genera automáticamente el código que copia campos de un objeto
+        a otro. Sin él, tendrías que escribir esto a mano para cada campo:
+        <code>response.setSku(product.getSku())</code>. MapStruct lo hace en tiempo de compilación,
+        sin reflexión, lo que lo hace muy rápido.
+      </p>
+
+      <pre><code><span class="an">@Mapper</span>(componentModel = <span class="st">"spring"</span>)
+<span class="kw">public interface</span> <span class="cl">ProductMapper</span> {
+
+    <span class="cl">ProductResponse</span> <span class="fn">toResponse</span>(<span class="cl">Product</span> product);   <span class="cm">// ← MapStruct genera la implementación</span>
+
+    <span class="an">@Mapping</span>(target = <span class="st">"id"</span>,       ignore = <span class="kw">true</span>)   <span class="cm">// ← el cliente no puede fijar el ID</span>
+    <span class="an">@Mapping</span>(target = <span class="st">"tenantId"</span>, ignore = <span class="kw">true</span>)   <span class="cm">// ← el servidor lo asigna</span>
+    <span class="an">@Mapping</span>(target = <span class="st">"version"</span>,  ignore = <span class="kw">true</span>)   <span class="cm">// ← lo maneja Hibernate</span>
+    <span class="cl">Product</span> <span class="fn">toEntity</span>(<span class="cl">CreateProductRequest</span> request);
+}</code></pre>
+
+      <h3>ProductService — Reglas de negocio</h3>
+
+      <pre><code><span class="an">@Service</span>
+<span class="an">@RequiredArgsConstructor</span>
+<span class="an">@Transactional</span>(readOnly = <span class="kw">true</span>)   <span class="cm">// ← todas las operaciones son read-only por defecto</span>
+<span class="kw">public class</span> <span class="cl">ProductService</span> {
+
+    <span class="an">@Transactional</span>   <span class="cm">// ← sobreescribe: esta operación escribe en la BD</span>
+    <span class="kw">public</span> <span class="cl">ProductResponse</span> <span class="fn">createProduct</span>(<span class="cl">String</span> tenantId, <span class="cl">CreateProductRequest</span> request) {
+
+        <span class="cm">// Regla de negocio: no puede haber dos productos con el mismo SKU en el mismo tenant</span>
+        productRepository.<span class="fn">findByTenantIdAndSku</span>(tenantId, request.sku())
+            .<span class="fn">ifPresent</span>(p -> { <span class="kw">throw new</span> <span class="cl">ProductAlreadyExistsException</span>(tenantId, request.sku()); });
+
+        <span class="kw">var</span> product = productMapper.<span class="fn">toEntity</span>(request);
+        product.<span class="fn">setTenantId</span>(tenantId);   <span class="cm">// ← el servidor, no el cliente, fija el tenant</span>
+
+        <span class="kw">return</span> productMapper.<span class="fn">toResponse</span>(productRepository.<span class="fn">save</span>(product));
+    }
+}</code></pre>
+
+    </section>
+
+    <hr />
+
+    <!-- ══ 10. API REST ══════════════════════════════════════════ -->
+    <section class="section" id="controller">
+      <div class="section-header">
+        <div class="section-number">10</div>
+        <h2>API REST — La puerta de entrada al sistema</h2>
+      </div>
+
+      <p>
+        El controller es la capa más externa: recibe las peticiones HTTP del cliente,
+        las delega al servicio, y devuelve la respuesta. <strong>No contiene lógica de negocio</strong>.
+      </p>
+
+      <h3>Endpoints disponibles</h3>
+
+      <table>
+        <thead>
+          <tr><th>Método</th><th>URL</th><th>Descripción</th><th>Respuesta</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-green">POST</span></td>
+            <td><code>/api/v1/products</code></td>
+            <td>Crear un producto</td>
+            <td>201 Created</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-blue">GET</span></td>
+            <td><code>/api/v1/products</code></td>
+            <td>Listar todos los productos del tenant</td>
+            <td>200 OK</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-blue">GET</span></td>
+            <td><code>/api/v1/products/{sku}</code></td>
+            <td>Obtener un producto por SKU</td>
+            <td>200 / 404</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-warning">
+        <div class="callout-label">Header obligatorio en todos los endpoints</div>
+        <p>
+          Todos los requests deben incluir <code>X-Tenant-ID: nombre-empresa</code>.
+          Este es un mecanismo temporal — en la <strong>Phase 4</strong> será reemplazado
+          por extracción automática desde el token JWT del usuario autenticado.
         </p>
       </div>
 
-      <div class="card">
-        <h4>
-          <span class="badge badge-purple">TEST 3</span>
-          &nbsp; shouldFindProductByTenantIdAndSku
-        </h4>
-        <p style="margin-top:0.5rem;">
-          Verifica que podés encontrar un producto específico usando la combinación
-          empresa + código de producto (SKU).
-        </p>
+      <h3>Ejemplo de uso</h3>
+
+      <pre><code><span class="cm"># Crear un producto</span>
+curl -X POST http://localhost:8080/api/v1/products \
+  -H <span class="st">"X-Tenant-ID: empresa-alpha"</span> \
+  -H <span class="st">"Content-Type: application/json"</span> \
+  -d <span class="st">'{"sku":"SKU-001","name":"Widget Pro","stock":100}'</span>
+
+<span class="cm"># Listar productos de la empresa</span>
+curl http://localhost:8080/api/v1/products \
+  -H <span class="st">"X-Tenant-ID: empresa-alpha"</span>
+
+<span class="cm"># Buscar por SKU</span>
+curl http://localhost:8080/api/v1/products/SKU-001 \
+  -H <span class="st">"X-Tenant-ID: empresa-alpha"</span></code></pre>
+
+      <h3>Manejo de errores — GlobalExceptionHandler</h3>
+
+      <p>
+        En lugar de manejar errores en cada controller, tenemos un handler centralizado
+        que convierte las excepciones en respuestas HTTP con el código correcto.
+      </p>
+
+      <table>
+        <thead>
+          <tr><th>Excepción</th><th>HTTP</th><th>Cuándo ocurre</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>ProductNotFoundException</code></td>
+            <td><span class="badge badge-yellow">404</span></td>
+            <td>El SKU no existe para ese tenant</td>
+          </tr>
+          <tr>
+            <td><code>ProductAlreadyExistsException</code></td>
+            <td><span class="badge badge-purple">409</span></td>
+            <td>El SKU ya existe para ese tenant</td>
+          </tr>
+          <tr>
+            <td><code>MethodArgumentNotValidException</code></td>
+            <td><span class="badge badge-yellow">400</span></td>
+            <td>El body del request tiene campos inválidos</td>
+          </tr>
+        </tbody>
+      </table>
+
+    </section>
+
+    <hr />
+
+    <!-- ══ 11. LOS TESTS ══════════════════════════════════════════ -->
+    <section class="section" id="tests">
+      <div class="section-header">
+        <div class="section-number">11</div>
+        <h2>Los tests — 15 en verde</h2>
       </div>
 
+      <p>
+        El proyecto tiene <strong>15 tests</strong> organizados en 3 clases, cada una probando
+        una capa distinta de la arquitectura.
+      </p>
+
+      <h3>ProductRepositoryTest — 4 tests <span class="badge badge-green">Integración</span></h3>
+      <p style="margin-bottom:0.75rem;">Usa Testcontainers (PostgreSQL real). Tarda ~8s en arrancar el contenedor Docker.</p>
+
       <div class="card">
-        <h4>
-          <span class="badge badge-yellow">TEST 4</span>
-          &nbsp; shouldNotFindProductByIdFromDifferentTenant
-        </h4>
-        <p style="margin-top:0.5rem;">
-          Escenario de ataque: la empresa B intenta acceder a un registro usando el ID
-          de un producto de la empresa A. El resultado debe ser vacío. Si este test falla,
-          hay una brecha de seguridad.
-        </p>
+        <h4><span class="badge badge-green">TEST 1</span> &nbsp; shouldPersistProductWithAllFields</h4>
+        <p style="margin-top:0.5rem;">Guarda un producto y verifica que la BD asignó ID y version automáticamente.</p>
+      </div>
+      <div class="card">
+        <h4><span class="badge badge-green">TEST 2</span> &nbsp; shouldIsolateDataBetweenTenants</h4>
+        <p style="margin-top:0.5rem;">La empresa A no puede ver datos de la empresa B. <strong>El test de seguridad más importante.</strong></p>
+      </div>
+      <div class="card">
+        <h4><span class="badge badge-green">TEST 3</span> &nbsp; shouldFindProductByTenantIdAndSku</h4>
+        <p style="margin-top:0.5rem;">Búsqueda combinada tenant + SKU.</p>
+      </div>
+      <div class="card">
+        <h4><span class="badge badge-green">TEST 4</span> &nbsp; shouldNotFindProductByIdFromDifferentTenant</h4>
+        <p style="margin-top:0.5rem;">Ataque: empresa B usa el ID de empresa A. Debe retornar vacío.</p>
+      </div>
+
+      <h3 style="margin-top:1.5rem;">ProductServiceTest — 5 tests <span class="badge badge-blue">Unitario</span></h3>
+      <p style="margin-bottom:0.75rem;">Usa Mockito. Sin base de datos. Tarda &lt;1s.</p>
+
+      <div class="card">
+        <h4><span class="badge badge-blue">TEST 5</span> &nbsp; shouldCreateProductSuccessfully</h4>
+        <p style="margin-top:0.5rem;">Flujo feliz: creación correcta y retorno del DTO de respuesta.</p>
+      </div>
+      <div class="card">
+        <h4><span class="badge badge-blue">TEST 6</span> &nbsp; shouldThrowExceptionWhenSkuAlreadyExistsForTenant</h4>
+        <p style="margin-top:0.5rem;">SKU duplicado en el mismo tenant lanza <code>ProductAlreadyExistsException</code>. Verifica que nunca se llama a <code>save()</code>.</p>
+      </div>
+      <div class="card">
+        <h4><span class="badge badge-blue">TEST 7</span> &nbsp; shouldAllowSameSkuForDifferentTenants</h4>
+        <p style="margin-top:0.5rem;">El mismo SKU en dos tenants distintos es válido — no son duplicados.</p>
+      </div>
+      <div class="card">
+        <h4><span class="badge badge-blue">TEST 8</span> &nbsp; shouldReturnAllProductsForTenant</h4>
+        <p style="margin-top:0.5rem;">Lista de productos filtrada estrictamente por tenant.</p>
+      </div>
+      <div class="card">
+        <h4><span class="badge badge-blue">TEST 9</span> &nbsp; shouldThrowExceptionWhenProductNotFound</h4>
+        <p style="margin-top:0.5rem;">SKU inexistente lanza <code>ProductNotFoundException</code>.</p>
+      </div>
+
+      <h3 style="margin-top:1.5rem;">ProductControllerTest — 5 tests <span class="badge badge-purple">Unitario</span></h3>
+      <p style="margin-bottom:0.75rem;">Usa MockMvc standalone + Mockito. Sin Spring context. Tarda &lt;1s.</p>
+
+      <div class="card">
+        <h4><span class="badge badge-purple">TEST 10</span> &nbsp; shouldCreateProductAndReturn201</h4>
+        <p style="margin-top:0.5rem;">POST exitoso devuelve HTTP 201 y el JSON del producto creado.</p>
+      </div>
+      <div class="card">
+        <h4><span class="badge badge-purple">TEST 11</span> &nbsp; shouldReturn409WhenSkuAlreadyExists</h4>
+        <p style="margin-top:0.5rem;">SKU duplicado devuelve HTTP 409 Conflict con mensaje de error.</p>
+      </div>
+      <div class="card">
+        <h4><span class="badge badge-purple">TEST 12</span> &nbsp; shouldReturnAllProductsForTenant</h4>
+        <p style="margin-top:0.5rem;">GET / devuelve la lista completa del tenant como JSON.</p>
+      </div>
+      <div class="card">
+        <h4><span class="badge badge-purple">TEST 13</span> &nbsp; shouldReturnProductBySku</h4>
+        <p style="margin-top:0.5rem;">GET /{sku} devuelve HTTP 200 con el producto encontrado.</p>
+      </div>
+      <div class="card">
+        <h4><span class="badge badge-purple">TEST 14+15</span> &nbsp; shouldReturn404WhenProductNotFound</h4>
+        <p style="margin-top:0.5rem;">SKU inexistente devuelve HTTP 404 con campo <code>message</code> en el JSON.</p>
       </div>
 
       <div class="callout callout-tip">
-        <div class="callout-label">Para correr los tests</div>
-        <p>Necesitás Docker corriendo. Luego: <code>./mvnw test -Dtest=ProductRepositoryTest</code></p>
+        <div class="callout-label">Correr todos los tests</div>
+        <p>Necesitás Docker corriendo (para Testcontainers). Luego: <code>./mvnw test</code> → debe mostrar <strong>15/15 en verde</strong>.</p>
       </div>
     </section>
 
@@ -979,7 +1192,7 @@
     <!-- ══ 10. COMANDOS ══════════════════════════════════════════ -->
     <section class="section" id="comandos">
       <div class="section-header">
-        <div class="section-number">10</div>
+        <div class="section-number">12</div>
         <h2>Referencia rápida de comandos</h2>
       </div>
 
@@ -1001,6 +1214,14 @@
             <td><code>./mvnw test -Dtest=ProductRepositoryTest</code></td>
           </tr>
           <tr>
+            <td>Levantar la aplicación</td>
+            <td><code>./mvnw spring-boot:run</code></td>
+          </tr>
+          <tr>
+            <td>Probar un endpoint</td>
+            <td><code>curl -H "X-Tenant-ID: demo" http://localhost:8080/api/v1/products</code></td>
+          </tr>
+          <tr>
             <td>Ver el historial de commits</td>
             <td><code>git log --oneline</code></td>
           </tr>
@@ -1017,7 +1238,7 @@
       <p>
         OmniCore Inventory Engine — Documentación interna &nbsp;·&nbsp;
         Actualizado: Abril 2026 &nbsp;·&nbsp;
-        <span class="badge badge-blue">v0.1 — Phase 1: Product persistence</span>
+        <span class="badge badge-green">v0.3 — Phase 3: REST API completa · 15 tests en verde</span>
       </p>
       <p style="margin-top:0.5rem;">
         Este archivo se actualiza con cada fase del proyecto. Si encontrás algo desactualizado,
