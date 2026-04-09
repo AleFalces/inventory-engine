@@ -19,6 +19,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -47,6 +53,7 @@ class ProductControllerTest {
         mockMvc = MockMvcBuilders
                 .standaloneSetup(productController)
                 .setControllerAdvice(new GlobalExceptionHandler())
+                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .build();
     }
 
@@ -93,15 +100,38 @@ class ProductControllerTest {
                 new ProductResponse(1L, "tenant-a", "SKU-001", "Widget", null, 50),
                 new ProductResponse(2L, "tenant-a", "SKU-002", "Gadget", null, 30)
         );
+        Page<ProductResponse> productPage = new PageImpl<>(products, PageRequest.of(0, 20), products.size());
 
-        when(productService.findAllByTenant("tenant-a")).thenReturn(products);
+        when(productService.findAllByTenant(eq("tenant-a"), any(Pageable.class))).thenReturn(productPage);
 
         mockMvc.perform(get("/api/v1/products")
                         .header("X-Tenant-ID", "tenant-a"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].sku").value("SKU-001"))
-                .andExpect(jsonPath("$[1].sku").value("SKU-002"));
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.content[0].sku").value("SKU-001"))
+                .andExpect(jsonPath("$.content[1].sku").value("SKU-002"));
+    }
+
+    // ─── GET /api/v1/products (paginado) ──────────────────────────────────────
+
+    @Test
+    void shouldReturnPagedProductList() throws Exception {
+        var products = List.of(
+                new ProductResponse(1L, "tenant-a", "SKU-001", "Widget", null, 50),
+                new ProductResponse(2L, "tenant-a", "SKU-002", "Gadget", null, 30)
+        );
+        var pageable    = PageRequest.of(0, 2);
+        Page<ProductResponse> productPage = new PageImpl<>(products, pageable, 5);
+
+        when(productService.findAllByTenant(eq("tenant-a"), any(Pageable.class))).thenReturn(productPage);
+
+        mockMvc.perform(get("/api/v1/products")
+                        .header("X-Tenant-ID", "tenant-a")
+                        .param("page", "0")
+                        .param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.totalElements").value(5));
     }
 
     // ─── GET /api/v1/products/{sku} ────────────────────────────────────────────

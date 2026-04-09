@@ -8,6 +8,9 @@ import com.omnicore.inventory_engine.api.dto.UpdateProductRequest;
 import com.omnicore.inventory_engine.domain.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,9 +34,10 @@ public class ProductController {
     }
 
     @GetMapping
-    public List<ProductResponse> findAll(
-            @RequestHeader("X-Tenant-ID") String tenantId) {
-        return productService.findAllByTenant(tenantId);
+    public Page<ProductResponse> findAll(
+            @RequestHeader("X-Tenant-ID") String tenantId,
+            @PageableDefault(size = 20, sort = "name") Pageable pageable) {
+        return productService.findAllByTenant(tenantId, pageable);
     }
 
     @GetMapping("/{sku}")

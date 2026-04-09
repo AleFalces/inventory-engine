@@ -15,6 +15,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -269,6 +273,28 @@ class ProductServiceTest {
                 .isInstanceOf(InsufficientStockException.class);
 
         verify(productRepository, never()).save(any());
+    }
+
+    // ─── Test: Paginación — servicio retorna Page<ProductResponse> ────────────
+
+    @Test
+    void shouldReturnPagedResultsForTenant() {
+        var entity1   = buildProduct("tenant-a", "SKU-001");
+        var entity2   = buildProduct("tenant-a", "SKU-002");
+        var response1 = buildResponse("tenant-a", "SKU-001");
+        var response2 = buildResponse("tenant-a", "SKU-002");
+        var pageable  = PageRequest.of(0, 2);
+        var productPage = new PageImpl<>(List.of(entity1, entity2), pageable, 2);
+
+        when(productRepository.findAllByTenantId("tenant-a", pageable)).thenReturn(productPage);
+        when(productMapper.toResponse(entity1)).thenReturn(response1);
+        when(productMapper.toResponse(entity2)).thenReturn(response2);
+
+        Page<ProductResponse> result = productService.findAllByTenant("tenant-a", pageable);
+
+        assertThat(result.getContent()).hasSize(2);
+        assertThat(result.getTotalElements()).isEqualTo(2);
+        assertThat(result.getContent()).extracting(ProductResponse::tenantId).containsOnly("tenant-a");
     }
 
     // ─── Helpers ───────────────────────────────────────────────────────────────

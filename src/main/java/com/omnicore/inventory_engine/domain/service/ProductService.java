@@ -13,6 +13,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.util.List;
 
 @Service
@@ -42,6 +45,11 @@ public class ProductService {
                 .stream()
                 .map(productMapper::toResponse)
                 .toList();
+    }
+
+    public Page<ProductResponse> findAllByTenant(String tenantId, Pageable pageable) {
+        return productRepository.findAllByTenantId(tenantId, pageable)
+                .map(productMapper::toResponse);
     }
 
     public ProductResponse findByTenantAndSku(String tenantId, String sku) {

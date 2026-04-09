@@ -9,6 +9,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -140,6 +143,38 @@ class ProductRepositoryTest {
         var result = productRepository.findByTenantIdAndSku("tenant-a", "SKU-001");
         assertThat(result).isPresent();
         assertThat(result.get().getStock()).isEqualTo(80);
+    }
+
+    // ─── Test 9: Paginación — primera página ──────────────────────────────────
+
+    @Test
+    void shouldReturnPagedProducts() {
+        productRepository.saveAll(List.of(
+                Product.builder().tenantId("tenant-a").sku("SKU-001").name("Alpha").stock(10).build(),
+                Product.builder().tenantId("tenant-a").sku("SKU-002").name("Beta").stock(20).build(),
+                Product.builder().tenantId("tenant-a").sku("SKU-003").name("Gamma").stock(30).build()
+        ));
+
+        Page<Product> page = productRepository.findAllByTenantId("tenant-a", PageRequest.of(0, 2));
+
+        assertThat(page.getContent()).hasSize(2);
+        assertThat(page.getTotalElements()).isEqualTo(3);
+    }
+
+    // ─── Test 10: Paginación — segunda página ─────────────────────────────────
+
+    @Test
+    void shouldReturnSecondPage() {
+        productRepository.saveAll(List.of(
+                Product.builder().tenantId("tenant-a").sku("SKU-001").name("Alpha").stock(10).build(),
+                Product.builder().tenantId("tenant-a").sku("SKU-002").name("Beta").stock(20).build(),
+                Product.builder().tenantId("tenant-a").sku("SKU-003").name("Gamma").stock(30).build()
+        ));
+
+        Page<Product> page = productRepository.findAllByTenantId("tenant-a", PageRequest.of(1, 2));
+
+        assertThat(page.getContent()).hasSize(1);
+        assertThat(page.getTotalElements()).isEqualTo(3);
     }
 
     // ─── Test 8: Decrementar stock ─────────────────────────────────────────────

@@ -87,7 +87,7 @@ Product
 | 4 | CRUD completo — `PUT /{sku}` y `DELETE /{sku}` | ✅ Completo |
 | 5 | Ajuste de stock (`POST /{sku}/adjust`) + optimistic locking | ✅ Completo |
 | 6 | Entidad `StockMovement` (trazabilidad de movimientos) | ✅ Completo |
-| 7 | Paginación en `GET /products` | 🔲 Pendiente |
+| 7 | Paginación en `GET /products` | ✅ Completo |
 | 8 | Spring Security + JWT (reemplazar header `X-Tenant-ID`) | 🔲 Pendiente |
 
 ---
@@ -138,26 +138,32 @@ else → product.stock = newStock → save() con @Version
 
 ---
 
-## Fase 7 — Paginación (próxima)
+## Fase 7 — Paginación ✅
 
-**Objetivo**: evitar que `GET /products` devuelva toda la tabla en un solo request. Agregar soporte de paginación con `page`, `size` y `sort`.
+**Completado**: `GET /products` soporta paginación. 43/43 tests en verde.
 
 ### Endpoint actualizado
 `GET /api/v1/products?page=0&size=20&sort=name,asc` → `Page<ProductResponse>`
 
-### Tests a escribir (antes del código de producción)
+### Artefactos entregados
+- `ProductRepository` — `Page<Product> findAllByTenantId(String tenantId, Pageable pageable)`
+- `ProductService.findAllByTenant(String tenantId, Pageable pageable)` → `Page<ProductResponse>`
+- `ProductController.findAll()` — acepta `@PageableDefault(size=20, sort="name") Pageable`
+- Default: página 0, tamaño 20, ordenado por nombre
 
-#### ProductRepositoryTest
-- `shouldReturnPagedProducts` — verificar que devuelve solo la cantidad pedida
-- `shouldReturnSecondPage` — verificar offset correcto
+---
 
-#### ProductServiceTest
-- `shouldReturnPagedResultsForTenant` — service devuelve `Page<ProductResponse>`
+## Fase 8 — Spring Security + JWT (próxima)
 
-#### ProductControllerTest
-- `shouldReturnPagedProductList` — `GET /products?page=0&size=2` → JSON con `content`, `totalElements`
+**Objetivo**: reemplazar el header `X-Tenant-ID` por extracción del `tenantId` desde un JWT válido.
 
-### Artefactos a modificar
-- `ProductRepository` — agregar `findAllByTenantId(String tenantId, Pageable pageable)`
-- `ProductService.findAllByTenant()` — recibe `Pageable`, retorna `Page<ProductResponse>`
-- `ProductController.findAll()` — acepta `@PageableDefault Pageable pageable`
+### Decisiones de diseño
+- El `tenantId` se extrae del claim del JWT en un filtro de seguridad
+- Se elimina `@RequestHeader("X-Tenant-ID")` de todos los controllers
+- El `SecurityContext` expone el `tenantId` al servicio
+
+### Artefactos a crear
+- Dependencia `spring-boot-starter-security` + `jjwt` en `pom.xml`
+- `JwtAuthenticationFilter` — valida token y puebla `SecurityContext`
+- `SecurityConfig` — configura la cadena de filtros (stateless, sin CSRF)
+- `TenantContext` — extrae `tenantId` del `Authentication` en el servicio
