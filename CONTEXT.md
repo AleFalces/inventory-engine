@@ -88,7 +88,7 @@ Product
 | 5 | Ajuste de stock (`POST /{sku}/adjust`) + optimistic locking | ✅ Completo |
 | 6 | Entidad `StockMovement` (trazabilidad de movimientos) | ✅ Completo |
 | 7 | Paginación en `GET /products` | ✅ Completo |
-| 8 | Spring Security + JWT (reemplazar header `X-Tenant-ID`) | 🔲 Pendiente |
+| 8 | Spring Security + JWT (reemplazar header `X-Tenant-ID`) | ✅ Completo |
 
 ---
 
@@ -153,17 +153,21 @@ else → product.stock = newStock → save() con @Version
 
 ---
 
-## Fase 8 — Spring Security + JWT (próxima)
+## Fase 8 — Spring Security + JWT ✅
 
-**Objetivo**: reemplazar el header `X-Tenant-ID` por extracción del `tenantId` desde un JWT válido.
+**Completado**: autenticación JWT implementada con TDD. 49/49 tests en verde.
+
+### Artefactos entregados
+- Dependencias `spring-boot-starter-security` + `jjwt-api/impl/jackson 0.12.6` en `pom.xml`
+- `JwtUtil` — genera tokens, extrae `tenantId` del subject, valida firma y expiración
+- `JwtAuthenticationFilter` — valida Bearer token y puebla `SecurityContextHolder` con `tenantId` como principal
+- `SecurityConfig` — cadena stateless, sin CSRF, todo endpoint requiere autenticación
+- `ProductController` — usa `@AuthenticationPrincipal String tenantId` (eliminado `X-Tenant-ID` header)
+- `JwtUtilTest` — 4 tests unitarios para `JwtUtil`
+- `SecurityIntegrationTest` — tests 401 sin token y con token inválido
+- `src/test/resources/application.properties` — añadido `jwt.secret` para tests de integración
 
 ### Decisiones de diseño
-- El `tenantId` se extrae del claim del JWT en un filtro de seguridad
-- Se elimina `@RequestHeader("X-Tenant-ID")` de todos los controllers
-- El `SecurityContext` expone el `tenantId` al servicio
-
-### Artefactos a crear
-- Dependencia `spring-boot-starter-security` + `jjwt` en `pom.xml`
-- `JwtAuthenticationFilter` — valida token y puebla `SecurityContext`
-- `SecurityConfig` — configura la cadena de filtros (stateless, sin CSRF)
-- `TenantContext` — extrae `tenantId` del `Authentication` en el servicio
+- `tenantId` se extrae del `subject` del JWT (no de un claim custom)
+- Token firmado con HMAC-SHA (HS256), secreto configurable vía `jwt.secret`
+- Sin refresh tokens ni revocación en esta fase

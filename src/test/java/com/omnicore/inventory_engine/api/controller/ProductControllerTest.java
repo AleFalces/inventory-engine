@@ -19,11 +19,15 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 
 import java.util.List;
 
@@ -49,12 +53,21 @@ class ProductControllerTest {
 
     @BeforeEach
     void setUp() {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("tenant-a", null, List.of()));
         objectMapper = new ObjectMapper();
         mockMvc = MockMvcBuilders
                 .standaloneSetup(productController)
                 .setControllerAdvice(new GlobalExceptionHandler())
-                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
+                .setCustomArgumentResolvers(
+                        new PageableHandlerMethodArgumentResolver(),
+                        new AuthenticationPrincipalArgumentResolver())
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     // ─── POST /api/v1/products ─────────────────────────────────────────────────
@@ -68,7 +81,6 @@ class ProductControllerTest {
                 .thenReturn(response);
 
         mockMvc.perform(post("/api/v1/products")
-                        .header("X-Tenant-ID", "tenant-a")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -85,7 +97,6 @@ class ProductControllerTest {
                 .thenThrow(new ProductAlreadyExistsException("tenant-a", "SKU-001"));
 
         mockMvc.perform(post("/api/v1/products")
-                        .header("X-Tenant-ID", "tenant-a")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
@@ -126,7 +137,6 @@ class ProductControllerTest {
         when(productService.findAllByTenant(eq("tenant-a"), any(Pageable.class))).thenReturn(productPage);
 
         mockMvc.perform(get("/api/v1/products")
-                        .header("X-Tenant-ID", "tenant-a")
                         .param("page", "0")
                         .param("size", "2"))
                 .andExpect(status().isOk())
@@ -170,7 +180,6 @@ class ProductControllerTest {
                 .thenReturn(response);
 
         mockMvc.perform(put("/api/v1/products/SKU-001")
-                        .header("X-Tenant-ID", "tenant-a")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -186,7 +195,6 @@ class ProductControllerTest {
                 .thenThrow(new ProductNotFoundException("tenant-a", "SKU-999"));
 
         mockMvc.perform(put("/api/v1/products/SKU-999")
-                        .header("X-Tenant-ID", "tenant-a")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound())
@@ -226,7 +234,6 @@ class ProductControllerTest {
                 .thenReturn(response);
 
         mockMvc.perform(post("/api/v1/products/SKU-001/adjust")
-                        .header("X-Tenant-ID", "tenant-a")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -241,7 +248,6 @@ class ProductControllerTest {
                 .thenThrow(new ProductNotFoundException("tenant-a", "SKU-999"));
 
         mockMvc.perform(post("/api/v1/products/SKU-999/adjust")
-                        .header("X-Tenant-ID", "tenant-a")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound())
@@ -256,7 +262,6 @@ class ProductControllerTest {
                 .thenThrow(new InsufficientStockException("tenant-a", "SKU-001", 50, -999));
 
         mockMvc.perform(post("/api/v1/products/SKU-001/adjust")
-                        .header("X-Tenant-ID", "tenant-a")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnprocessableEntity())
