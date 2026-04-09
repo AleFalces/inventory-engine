@@ -425,7 +425,7 @@
   <!-- ══ SIDEBAR ══════════════════════════════════════════════ -->
   <aside class="sidebar">
     <div class="sidebar-logo">OmniCore</div>
-    <div class="sidebar-sub">Inventory Engine — Docs v0.1</div>
+    <div class="sidebar-sub">Inventory Engine — Docs v0.4</div>
     <nav>
       <div class="section-title">Introducción</div>
       <a href="#que-es">¿Qué es este proyecto?</a>
@@ -442,7 +442,10 @@
       <a href="#repository">ProductRepository</a>
       <a href="#service">Capa de Servicio</a>
       <a href="#controller">API REST</a>
-      <a href="#tests">Los tests (15)</a>
+      <a href="#tests">Los tests (25)</a>
+
+      <div class="section-title">En progreso</div>
+      <a href="#fase4">Fase 4 — CRUD completo</a>
 
       <div class="section-title">Comandos</div>
       <a href="#comandos">Referencia rápida</a>
@@ -775,18 +778,32 @@
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">Product.java</span> &nbsp;<span class="note">← la tabla "products" en Java</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">repository/</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">ProductRepository.java</span> &nbsp;<span class="note">← queries a la base de datos</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">service/</span> &nbsp;<span class="note">← (próximamente) lógica de negocio</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">service/</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductService.java</span> &nbsp;<span class="note">← lógica de negocio</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductNotFoundException.java</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductAlreadyExistsException.java</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">api/</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">controller/</span> &nbsp;<span class="note">← (próximamente) endpoints REST</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">dto/</span> &nbsp;<span class="note">← (próximamente) lo que ve el mundo exterior</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">mapper/</span> &nbsp;<span class="note">← (próximamente) MapStruct</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">controller/</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductController.java</span> &nbsp;<span class="note">← endpoints REST</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">GlobalExceptionHandler.java</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">dto/</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">CreateProductRequest.java</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">UpdateProductRequest.java</span> &nbsp;<span class="note">← nuevo (Fase 4)</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductResponse.java</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ErrorResponse.java</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">mapper/</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductMapper.java</span> &nbsp;<span class="note">← MapStruct</span><br />
         <br />
         &nbsp;&nbsp;<span class="dir">test/java/com/omnicore/inventory_engine/</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">TestcontainersConfiguration.java</span> &nbsp;<span class="note">← levanta PostgreSQL en Docker</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">domain/repository/</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">ProductRepositoryTest.java</span> &nbsp;<span class="note">← 4 tests de persistencia</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductRepositoryTest.java</span> &nbsp;<span class="note">← 6 tests (2 nuevos en Fase 4)</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">domain/service/</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductServiceTest.java</span> &nbsp;<span class="note">← 9 tests (4 nuevos en Fase 4)</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">api/controller/</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductControllerTest.java</span> &nbsp;<span class="note">← 9 tests (4 nuevos en Fase 4)</span><br />
         &nbsp;&nbsp;<span class="dir">test/resources/</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;<span class="new">application.properties</span> &nbsp;<span class="note">← config solo para tests (create-drop)</span>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">application.properties</span> &nbsp;<span class="note">← config solo para tests (create-drop)</span>
       </div>
 
       <h3>¿Por qué separar en <code>domain</code> y <code>api</code>?</h3>
@@ -1018,7 +1035,7 @@
 
       <table>
         <thead>
-          <tr><th>Método</th><th>URL</th><th>Descripción</th><th>Respuesta</th></tr>
+          <tr><th>Método</th><th>URL</th><th>Descripción</th><th>Respuesta</th><th>Estado</th></tr>
         </thead>
         <tbody>
           <tr>
@@ -1026,18 +1043,35 @@
             <td><code>/api/v1/products</code></td>
             <td>Crear un producto</td>
             <td>201 Created</td>
+            <td><span class="badge badge-green">✓ Listo</span></td>
           </tr>
           <tr>
             <td><span class="badge badge-blue">GET</span></td>
             <td><code>/api/v1/products</code></td>
             <td>Listar todos los productos del tenant</td>
             <td>200 OK</td>
+            <td><span class="badge badge-green">✓ Listo</span></td>
           </tr>
           <tr>
             <td><span class="badge badge-blue">GET</span></td>
             <td><code>/api/v1/products/{sku}</code></td>
             <td>Obtener un producto por SKU</td>
             <td>200 / 404</td>
+            <td><span class="badge badge-green">✓ Listo</span></td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-yellow">PUT</span></td>
+            <td><code>/api/v1/products/{sku}</code></td>
+            <td>Actualizar nombre, descripción y stock</td>
+            <td>200 / 404</td>
+            <td><span class="badge badge-yellow">En progreso</span></td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-purple">DELETE</span></td>
+            <td><code>/api/v1/products/{sku}</code></td>
+            <td>Eliminar un producto del tenant</td>
+            <td>204 / 404</td>
+            <td><span class="badge badge-yellow">En progreso</span></td>
           </tr>
         </tbody>
       </table>
@@ -1105,15 +1139,16 @@ curl http://localhost:8080/api/v1/products/SKU-001 \
     <section class="section" id="tests">
       <div class="section-header">
         <div class="section-number">11</div>
-        <h2>Los tests — 15 en verde</h2>
+        <h2>Los tests — 15 en verde · 10 en 🔴 RED</h2>
       </div>
 
       <p>
-        El proyecto tiene <strong>15 tests</strong> organizados en 3 clases, cada una probando
-        una capa distinta de la arquitectura.
+        El proyecto tiene <strong>25 tests</strong> en 3 clases. Los primeros 15 están en verde
+        (Fases 1–3). Los 10 nuevos están en fase RED: existen, compilan, y fallan a propósito
+        porque el código de producción aún no está implementado.
       </p>
 
-      <h3>ProductRepositoryTest — 4 tests <span class="badge badge-green">Integración</span></h3>
+      <h3>ProductRepositoryTest — 6 tests <span class="badge badge-green">Integración</span></h3>
       <p style="margin-bottom:0.75rem;">Usa Testcontainers (PostgreSQL real). Tarda ~8s en arrancar el contenedor Docker.</p>
 
       <div class="card">
@@ -1132,58 +1167,203 @@ curl http://localhost:8080/api/v1/products/SKU-001 \
         <h4><span class="badge badge-green">TEST 4</span> &nbsp; shouldNotFindProductByIdFromDifferentTenant</h4>
         <p style="margin-top:0.5rem;">Ataque: empresa B usa el ID de empresa A. Debe retornar vacío.</p>
       </div>
+      <div class="card">
+        <h4><span class="badge badge-green">TEST 5</span> &nbsp; shouldUpdateProductFields <span class="badge badge-blue">Fase 4</span></h4>
+        <p style="margin-top:0.5rem;">Persiste cambios de nombre, descripción y stock usando <code>save()</code> de JPA.</p>
+      </div>
+      <div class="card">
+        <h4><span class="badge badge-green">TEST 6</span> &nbsp; shouldDeleteProductByTenantIdAndSku <span class="badge badge-blue">Fase 4</span></h4>
+        <p style="margin-top:0.5rem;">Elimina un producto usando <code>delete(entity)</code> y verifica que ya no existe.</p>
+      </div>
 
-      <h3 style="margin-top:1.5rem;">ProductServiceTest — 5 tests <span class="badge badge-blue">Unitario</span></h3>
+      <h3 style="margin-top:1.5rem;">ProductServiceTest — 9 tests <span class="badge badge-blue">Unitario</span></h3>
       <p style="margin-bottom:0.75rem;">Usa Mockito. Sin base de datos. Tarda &lt;1s.</p>
 
       <div class="card">
-        <h4><span class="badge badge-blue">TEST 5</span> &nbsp; shouldCreateProductSuccessfully</h4>
+        <h4><span class="badge badge-blue">TEST 7</span> &nbsp; shouldCreateProductSuccessfully</h4>
         <p style="margin-top:0.5rem;">Flujo feliz: creación correcta y retorno del DTO de respuesta.</p>
       </div>
       <div class="card">
-        <h4><span class="badge badge-blue">TEST 6</span> &nbsp; shouldThrowExceptionWhenSkuAlreadyExistsForTenant</h4>
+        <h4><span class="badge badge-blue">TEST 8</span> &nbsp; shouldThrowExceptionWhenSkuAlreadyExistsForTenant</h4>
         <p style="margin-top:0.5rem;">SKU duplicado en el mismo tenant lanza <code>ProductAlreadyExistsException</code>. Verifica que nunca se llama a <code>save()</code>.</p>
       </div>
       <div class="card">
-        <h4><span class="badge badge-blue">TEST 7</span> &nbsp; shouldAllowSameSkuForDifferentTenants</h4>
+        <h4><span class="badge badge-blue">TEST 9</span> &nbsp; shouldAllowSameSkuForDifferentTenants</h4>
         <p style="margin-top:0.5rem;">El mismo SKU en dos tenants distintos es válido — no son duplicados.</p>
       </div>
       <div class="card">
-        <h4><span class="badge badge-blue">TEST 8</span> &nbsp; shouldReturnAllProductsForTenant</h4>
+        <h4><span class="badge badge-blue">TEST 10</span> &nbsp; shouldReturnAllProductsForTenant</h4>
         <p style="margin-top:0.5rem;">Lista de productos filtrada estrictamente por tenant.</p>
       </div>
       <div class="card">
-        <h4><span class="badge badge-blue">TEST 9</span> &nbsp; shouldThrowExceptionWhenProductNotFound</h4>
+        <h4><span class="badge badge-blue">TEST 11</span> &nbsp; shouldThrowExceptionWhenProductNotFound</h4>
         <p style="margin-top:0.5rem;">SKU inexistente lanza <code>ProductNotFoundException</code>.</p>
       </div>
+      <div class="card" style="border-color: var(--red);">
+        <h4><span class="badge" style="background:rgba(248,113,113,0.15);color:var(--red);">🔴 TEST 12</span> &nbsp; shouldUpdateProductSuccessfully <span class="badge badge-blue">Fase 4</span></h4>
+        <p style="margin-top:0.5rem;">Verifica que <code>updateProduct()</code> encuentra el producto, persiste los cambios y retorna el DTO actualizado.</p>
+      </div>
+      <div class="card" style="border-color: var(--red);">
+        <h4><span class="badge" style="background:rgba(248,113,113,0.15);color:var(--red);">🔴 TEST 13</span> &nbsp; shouldThrowExceptionWhenUpdatingNonExistentProduct <span class="badge badge-blue">Fase 4</span></h4>
+        <p style="margin-top:0.5rem;">Update de un SKU que no existe lanza <code>ProductNotFoundException</code> sin llamar a <code>save()</code>.</p>
+      </div>
+      <div class="card" style="border-color: var(--red);">
+        <h4><span class="badge" style="background:rgba(248,113,113,0.15);color:var(--red);">🔴 TEST 14</span> &nbsp; shouldDeleteProductSuccessfully <span class="badge badge-blue">Fase 4</span></h4>
+        <p style="margin-top:0.5rem;">Verifica que <code>deleteProduct()</code> encuentra el producto y llama a <code>delete(entity)</code>.</p>
+      </div>
+      <div class="card" style="border-color: var(--red);">
+        <h4><span class="badge" style="background:rgba(248,113,113,0.15);color:var(--red);">🔴 TEST 15</span> &nbsp; shouldThrowExceptionWhenDeletingNonExistentProduct <span class="badge badge-blue">Fase 4</span></h4>
+        <p style="margin-top:0.5rem;">Delete de un SKU inexistente lanza <code>ProductNotFoundException</code> sin llamar a <code>delete()</code>.</p>
+      </div>
 
-      <h3 style="margin-top:1.5rem;">ProductControllerTest — 5 tests <span class="badge badge-purple">Unitario</span></h3>
+      <h3 style="margin-top:1.5rem;">ProductControllerTest — 9 tests <span class="badge badge-purple">Unitario</span></h3>
       <p style="margin-bottom:0.75rem;">Usa MockMvc standalone + Mockito. Sin Spring context. Tarda &lt;1s.</p>
 
       <div class="card">
-        <h4><span class="badge badge-purple">TEST 10</span> &nbsp; shouldCreateProductAndReturn201</h4>
+        <h4><span class="badge badge-purple">TEST 16</span> &nbsp; shouldCreateProductAndReturn201</h4>
         <p style="margin-top:0.5rem;">POST exitoso devuelve HTTP 201 y el JSON del producto creado.</p>
       </div>
       <div class="card">
-        <h4><span class="badge badge-purple">TEST 11</span> &nbsp; shouldReturn409WhenSkuAlreadyExists</h4>
+        <h4><span class="badge badge-purple">TEST 17</span> &nbsp; shouldReturn409WhenSkuAlreadyExists</h4>
         <p style="margin-top:0.5rem;">SKU duplicado devuelve HTTP 409 Conflict con mensaje de error.</p>
       </div>
       <div class="card">
-        <h4><span class="badge badge-purple">TEST 12</span> &nbsp; shouldReturnAllProductsForTenant</h4>
+        <h4><span class="badge badge-purple">TEST 18</span> &nbsp; shouldReturnAllProductsForTenant</h4>
         <p style="margin-top:0.5rem;">GET / devuelve la lista completa del tenant como JSON.</p>
       </div>
       <div class="card">
-        <h4><span class="badge badge-purple">TEST 13</span> &nbsp; shouldReturnProductBySku</h4>
+        <h4><span class="badge badge-purple">TEST 19</span> &nbsp; shouldReturnProductBySku</h4>
         <p style="margin-top:0.5rem;">GET /{sku} devuelve HTTP 200 con el producto encontrado.</p>
       </div>
       <div class="card">
-        <h4><span class="badge badge-purple">TEST 14+15</span> &nbsp; shouldReturn404WhenProductNotFound</h4>
+        <h4><span class="badge badge-purple">TEST 20</span> &nbsp; shouldReturn404WhenProductNotFound</h4>
         <p style="margin-top:0.5rem;">SKU inexistente devuelve HTTP 404 con campo <code>message</code> en el JSON.</p>
+      </div>
+      <div class="card" style="border-color: var(--red);">
+        <h4><span class="badge" style="background:rgba(248,113,113,0.15);color:var(--red);">🔴 TEST 21</span> &nbsp; shouldUpdateProductAndReturn200 <span class="badge badge-blue">Fase 4</span></h4>
+        <p style="margin-top:0.5rem;"><code>PUT /{sku}</code> con body válido devuelve HTTP 200 y el JSON actualizado.</p>
+      </div>
+      <div class="card" style="border-color: var(--red);">
+        <h4><span class="badge" style="background:rgba(248,113,113,0.15);color:var(--red);">🔴 TEST 22</span> &nbsp; shouldReturn404WhenUpdatingNonExistentProduct <span class="badge badge-blue">Fase 4</span></h4>
+        <p style="margin-top:0.5rem;"><code>PUT /{sku}</code> con SKU inexistente devuelve HTTP 404.</p>
+      </div>
+      <div class="card" style="border-color: var(--red);">
+        <h4><span class="badge" style="background:rgba(248,113,113,0.15);color:var(--red);">🔴 TEST 23</span> &nbsp; shouldDeleteProductAndReturn204 <span class="badge badge-blue">Fase 4</span></h4>
+        <p style="margin-top:0.5rem;"><code>DELETE /{sku}</code> exitoso devuelve HTTP 204 sin cuerpo.</p>
+      </div>
+      <div class="card" style="border-color: var(--red);">
+        <h4><span class="badge" style="background:rgba(248,113,113,0.15);color:var(--red);">🔴 TEST 24-25</span> &nbsp; shouldReturn404WhenDeletingNonExistentProduct <span class="badge badge-blue">Fase 4</span></h4>
+        <p style="margin-top:0.5rem;"><code>DELETE /{sku}</code> con SKU inexistente devuelve HTTP 404.</p>
       </div>
 
       <div class="callout callout-tip">
         <div class="callout-label">Correr todos los tests</div>
-        <p>Necesitás Docker corriendo (para Testcontainers). Luego: <code>./mvnw test</code> → debe mostrar <strong>15/15 en verde</strong>.</p>
+        <p>Necesitás Docker corriendo (para Testcontainers). Luego: <code>./mvnw test</code> → 15 en verde, 8 en rojo (esperado, es la fase RED del TDD).</p>
+      </div>
+    </section>
+
+    <hr />
+
+    <hr />
+
+    <!-- ══ FASE 4 — CRUD COMPLETO ══════════════════════════════════ -->
+    <section class="section" id="fase4">
+      <div class="section-header">
+        <div class="section-number" style="background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);">4</div>
+        <h2>Fase 4 — CRUD completo <span class="badge badge-yellow">En progreso</span></h2>
+      </div>
+
+      <p>
+        Las fases anteriores construyeron el esqueleto: crear y leer productos. La Fase 4
+        completa el CRUD agregando <strong>actualización</strong> (PUT) y <strong>eliminación</strong> (DELETE).
+        Ahora mismo estamos en la etapa 🔴 <strong>RED</strong> del ciclo TDD.
+      </p>
+
+      <div class="callout callout-why">
+        <div class="callout-label">¿Por qué escribir los tests antes que el código?</div>
+        <p>
+          Escribir el test primero obliga a pensar en <em>qué debe hacer</em> el código antes de pensar
+          en <em>cómo lo hace</em>. El test define el contrato: qué entra, qué sale, qué errores se lanzan.
+          Cuando después implementás, tenés una red de seguridad lista desde el primer segundo.
+        </p>
+      </div>
+
+      <h3>El patrón de stubs — compilar en RED</h3>
+
+      <p>
+        Para que los tests compilen y corran (y fallen), agregamos implementaciones mínimas que
+        lanzan <code>UnsupportedOperationException</code>. Esto garantiza que los tests corren en
+        rojo — no simplemente que el proyecto no compila.
+      </p>
+
+      <pre><code><span class="cm">// ProductService.java — stubs que garantizan el RED</span>
+<span class="an">@Transactional</span>
+<span class="kw">public</span> <span class="cl">ProductResponse</span> <span class="fn">updateProduct</span>(<span class="cl">String</span> tenantId, <span class="cl">String</span> sku, <span class="cl">UpdateProductRequest</span> request) {
+    <span class="kw">throw new</span> <span class="cl">UnsupportedOperationException</span>(<span class="st">"not implemented"</span>);
+}
+
+<span class="an">@Transactional</span>
+<span class="kw">public void</span> <span class="fn">deleteProduct</span>(<span class="cl">String</span> tenantId, <span class="cl">String</span> sku) {
+    <span class="kw">throw new</span> <span class="cl">UnsupportedOperationException</span>(<span class="st">"not implemented"</span>);
+}</code></pre>
+
+      <h3>El nuevo DTO — UpdateProductRequest</h3>
+
+      <p>
+        Para el update necesitamos un nuevo DTO de entrada. A diferencia de <code>CreateProductRequest</code>,
+        no incluye <code>sku</code> (el SKU no se puede cambiar — es el identificador del producto en un tenant).
+      </p>
+
+      <pre><code><span class="kw">public record</span> <span class="cl">UpdateProductRequest</span>(
+    <span class="an">@NotBlank</span>                    <span class="cl">String</span> name,
+                                 <span class="cl">String</span> description,   <span class="cm">// ← opcional, puede ser null</span>
+    <span class="an">@NotNull @PositiveOrZero</span>     <span class="cl">Integer</span> stock
+) {}</code></pre>
+
+      <div class="callout callout-warning">
+        <div class="callout-label">¿Por qué no se puede cambiar el SKU?</div>
+        <p>
+          El SKU es la identidad del producto dentro del tenant. Cambiarlo sería como cambiar el DNI de una persona:
+          rompe referencias en otras tablas, en órdenes de compra, en movimientos de stock. Si un producto necesita
+          un SKU nuevo, se crea uno nuevo y se da de baja el viejo.
+        </p>
+      </div>
+
+      <h3>Próximo paso — fase 🟢 GREEN</h3>
+
+      <p>
+        Una vez que los tests corren en rojo, implementamos el código mínimo para hacerlos pasar:
+      </p>
+
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>1. Implementar <code>ProductService.updateProduct()</code></h4>
+            <p>Busca por tenantId + SKU, actualiza los campos, guarda. Lanza <code>ProductNotFoundException</code> si no existe.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>2. Implementar <code>ProductService.deleteProduct()</code></h4>
+            <p>Busca por tenantId + SKU, elimina. Lanza <code>ProductNotFoundException</code> si no existe.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>3. Conectar en <code>ProductController</code></h4>
+            <p>Reemplazar los <code>throw new UnsupportedOperationException()</code> por llamadas reales al servicio.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>4. Verificar: 25/25 en verde</h4>
+            <p><code>./mvnw test</code> → todos los tests pasan.</p>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -1238,7 +1418,7 @@ curl http://localhost:8080/api/v1/products/SKU-001 \
       <p>
         OmniCore Inventory Engine — Documentación interna &nbsp;·&nbsp;
         Actualizado: Abril 2026 &nbsp;·&nbsp;
-        <span class="badge badge-green">v0.3 — Phase 3: REST API completa · 15 tests en verde</span>
+        <span class="badge badge-yellow">v0.4 — Fase 4 en curso: CRUD completo · 15 ✓ verde · 8 🔴 RED</span>
       </p>
       <p style="margin-top:0.5rem;">
         Este archivo se actualiza con cada fase del proyecto. Si encontrás algo desactualizado,

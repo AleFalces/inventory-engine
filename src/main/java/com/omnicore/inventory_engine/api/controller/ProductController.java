@@ -2,6 +2,7 @@ package com.omnicore.inventory_engine.api.controller;
 
 import com.omnicore.inventory_engine.api.dto.CreateProductRequest;
 import com.omnicore.inventory_engine.api.dto.ProductResponse;
+import com.omnicore.inventory_engine.api.dto.UpdateProductRequest;
 import com.omnicore.inventory_engine.domain.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -37,5 +38,21 @@ public class ProductController {
             @RequestHeader("X-Tenant-ID") String tenantId,
             @PathVariable String sku) {
         return productService.findByTenantAndSku(tenantId, sku);
+    }
+
+    @PutMapping("/{sku}")
+    public ProductResponse update(
+            @RequestHeader("X-Tenant-ID") String tenantId,
+            @PathVariable String sku,
+            @Valid @RequestBody UpdateProductRequest request) {
+        throw new UnsupportedOperationException("not implemented");
+    }
+
+    @DeleteMapping("/{sku}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(
+            @RequestHeader("X-Tenant-ID") String tenantId,
+            @PathVariable String sku) {
+        throw new UnsupportedOperationException("not implemented");
     }
 }

@@ -22,7 +22,7 @@ Motor de inventario de alta concurrencia para SaaS Multi-tenant. El producto ges
 | Capa | Tecnología |
 |------|-----------|
 | Lenguaje | Java 21 |
-| Framework | Spring Boot 3.4 |
+| Framework | Spring Boot 4.0.5 |
 | Persistencia | Spring Data JPA + Hibernate |
 | Base de Datos | PostgreSQL |
 | Utilidades de entidad | Lombok |
@@ -50,10 +50,58 @@ Product
 └── version: Long (@Version — bloqueo optimista para concurrencia)
 ```
 
+## Decisiones de Diseño
+
+| Decisión | Razón |
+|----------|-------|
+| `tenantId` obligatorio en toda consulta | Multi-tenancy estricto, sin fugas entre tenants |
+| `@Version` en `Product` | Preparado para optimistic locking en ajuste de stock |
+| `X-Tenant-ID` header (temporal) | Se reemplazará por extracción desde JWT en Fase 8 |
+| Testcontainers (sin H2) | Evitar divergencia entre test y producción |
+| `@Transactional(readOnly = true)` en service | Optimización de lecturas por defecto |
+
+---
+
 ## Fases de Desarrollo
 
-- [x] Phase 0: Proyecto base + CLAUDE.md + CONTEXT.md
-- [ ] Phase 1: Product entity + ProductRepository + tests de persistencia (actual)
-- [ ] Phase 2: Operaciones de ajuste de stock (concurrencia segura)
-- [ ] Phase 3: API REST (controllers + DTOs Records + MapStruct)
-- [ ] Phase 4: Propagación del security context multi-tenant
+| # | Fase | Estado |
+|---|------|--------|
+| 0 | Proyecto base + CLAUDE.md + CONTEXT.md | ✅ Completo |
+| 1 | `Product` entity + `ProductRepository` + tests de persistencia | ✅ Completo |
+| 2 | `ProductService` + tests de servicio | ✅ Completo |
+| 3 | `ProductController` + DTOs + MapStruct + tests de controller | ✅ Completo |
+| 4 | CRUD completo — `PUT /{sku}` y `DELETE /{sku}` | 🔲 Pendiente |
+| 5 | Ajuste de stock (`POST /{sku}/adjust`) + optimistic locking | 🔲 Pendiente |
+| 6 | Entidad `StockMovement` (trazabilidad de movimientos) | 🔲 Pendiente |
+| 7 | Paginación en `GET /products` | 🔲 Pendiente |
+| 8 | Spring Security + JWT (reemplazar header `X-Tenant-ID`) | 🔲 Pendiente |
+
+---
+
+## Fase 4 — CRUD Completo (próxima)
+
+**Objetivo**: agregar `PUT /{sku}` (update) y `DELETE /{sku}` a las tres capas, TDD estricto.
+
+### Tests a escribir (antes del código de producción)
+
+#### ProductRepositoryTest
+- `shouldUpdateProductFields` — persistir cambios de nombre/descripción/stock y verificar
+- `shouldDeleteProductByTenantIdAndSku` — borrar y comprobar que no se encuentra
+
+#### ProductServiceTest
+- `shouldUpdateProductSuccessfully` — happy path update
+- `shouldThrowExceptionWhenUpdatingNonExistentProduct` — `ProductNotFoundException`
+- `shouldDeleteProductSuccessfully` — happy path delete
+- `shouldThrowExceptionWhenDeletingNonExistentProduct` — `ProductNotFoundException`
+
+#### ProductControllerTest
+- `shouldUpdateProductAndReturn200` — `PUT /{sku}` → 200 + body
+- `shouldReturn404WhenUpdatingNonExistentProduct` — 404
+- `shouldDeleteProductAndReturn204` — `DELETE /{sku}` → 204
+- `shouldReturn404WhenDeletingNonExistentProduct` — 404
+
+### Artefactos nuevos
+- DTO `UpdateProductRequest` (record): `name`, `description`, `stock`
+- `ProductService.updateProduct(tenantId, sku, request)` → `ProductResponse`
+- `ProductService.deleteProduct(tenantId, sku)` → `void`
+- `ProductController` — endpoints `PUT /{sku}` y `DELETE /{sku}`

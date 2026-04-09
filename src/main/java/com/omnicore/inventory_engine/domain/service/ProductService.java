@@ -2,6 +2,7 @@ package com.omnicore.inventory_engine.domain.service;
 
 import com.omnicore.inventory_engine.api.dto.CreateProductRequest;
 import com.omnicore.inventory_engine.api.dto.ProductResponse;
+import com.omnicore.inventory_engine.api.dto.UpdateProductRequest;
 import com.omnicore.inventory_engine.api.mapper.ProductMapper;
 import com.omnicore.inventory_engine.domain.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -42,5 +43,15 @@ public class ProductService {
         return productRepository.findByTenantIdAndSku(tenantId, sku)
                 .map(productMapper::toResponse)
                 .orElseThrow(() -> new ProductNotFoundException(tenantId, sku));
+    }
+
+    @Transactional
+    public ProductResponse updateProduct(String tenantId, String sku, UpdateProductRequest request) {
+        throw new UnsupportedOperationException("not implemented");
+    }
+
+    @Transactional
+    public void deleteProduct(String tenantId, String sku) {
+        throw new UnsupportedOperationException("not implemented");
     }
 }

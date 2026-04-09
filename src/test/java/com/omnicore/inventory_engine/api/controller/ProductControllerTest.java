@@ -3,6 +3,7 @@ package com.omnicore.inventory_engine.api.controller;
 import tools.jackson.databind.ObjectMapper;
 import com.omnicore.inventory_engine.api.dto.CreateProductRequest;
 import com.omnicore.inventory_engine.api.dto.ProductResponse;
+import com.omnicore.inventory_engine.api.dto.UpdateProductRequest;
 import com.omnicore.inventory_engine.domain.service.ProductAlreadyExistsException;
 import com.omnicore.inventory_engine.domain.service.ProductNotFoundException;
 import com.omnicore.inventory_engine.domain.service.ProductService;
@@ -20,6 +21,8 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -119,6 +122,62 @@ class ProductControllerTest {
                 .thenThrow(new ProductNotFoundException("tenant-a", "SKU-999"));
 
         mockMvc.perform(get("/api/v1/products/SKU-999")
+                        .header("X-Tenant-ID", "tenant-a"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // ─── PUT /api/v1/products/{sku} ────────────────────────────────────────────
+
+    @Test
+    void shouldUpdateProductAndReturn200() throws Exception {
+        var request  = new UpdateProductRequest("Updated Widget", "New desc", 75);
+        var response = new ProductResponse(1L, "tenant-a", "SKU-001", "Updated Widget", "New desc", 75);
+
+        when(productService.updateProduct(eq("tenant-a"), eq("SKU-001"), any(UpdateProductRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(put("/api/v1/products/SKU-001")
+                        .header("X-Tenant-ID", "tenant-a")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Updated Widget"))
+                .andExpect(jsonPath("$.stock").value(75));
+    }
+
+    @Test
+    void shouldReturn404WhenUpdatingNonExistentProduct() throws Exception {
+        var request = new UpdateProductRequest("Name", null, 10);
+
+        when(productService.updateProduct(eq("tenant-a"), eq("SKU-999"), any()))
+                .thenThrow(new ProductNotFoundException("tenant-a", "SKU-999"));
+
+        mockMvc.perform(put("/api/v1/products/SKU-999")
+                        .header("X-Tenant-ID", "tenant-a")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // ─── DELETE /api/v1/products/{sku} ────────────────────────────────────────
+
+    @Test
+    void shouldDeleteProductAndReturn204() throws Exception {
+        mockMvc.perform(delete("/api/v1/products/SKU-001")
+                        .header("X-Tenant-ID", "tenant-a"))
+                .andExpect(status().isNoContent());
+
+        verify(productService).deleteProduct("tenant-a", "SKU-001");
+    }
+
+    @Test
+    void shouldReturn404WhenDeletingNonExistentProduct() throws Exception {
+        doThrow(new ProductNotFoundException("tenant-a", "SKU-999"))
+                .when(productService).deleteProduct("tenant-a", "SKU-999");
+
+        mockMvc.perform(delete("/api/v1/products/SKU-999")
                         .header("X-Tenant-ID", "tenant-a"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").exists());

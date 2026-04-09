@@ -2,6 +2,7 @@ package com.omnicore.inventory_engine.domain.service;
 
 import com.omnicore.inventory_engine.api.dto.CreateProductRequest;
 import com.omnicore.inventory_engine.api.dto.ProductResponse;
+import com.omnicore.inventory_engine.api.dto.UpdateProductRequest;
 import com.omnicore.inventory_engine.api.mapper.ProductMapper;
 import com.omnicore.inventory_engine.domain.entity.Product;
 import com.omnicore.inventory_engine.domain.repository.ProductRepository;
@@ -115,6 +116,66 @@ class ProductServiceTest {
         assertThatThrownBy(() -> productService.findByTenantAndSku("tenant-a", "SKU-999"))
                 .isInstanceOf(ProductNotFoundException.class)
                 .hasMessageContaining("SKU-999");
+    }
+
+    // ─── Test 6: Actualizar producto exitosamente ─────────────────────────────
+
+    @Test
+    void shouldUpdateProductSuccessfully() {
+        var existing = buildProduct("tenant-a", "SKU-001");
+        var request  = new UpdateProductRequest("New Name", "New Desc", 50);
+        var updated  = new ProductResponse(1L, "tenant-a", "SKU-001", "New Name", "New Desc", 50);
+
+        when(productRepository.findByTenantIdAndSku("tenant-a", "SKU-001")).thenReturn(Optional.of(existing));
+        when(productRepository.save(any(Product.class))).thenReturn(existing);
+        when(productMapper.toResponse(existing)).thenReturn(updated);
+
+        ProductResponse result = productService.updateProduct("tenant-a", "SKU-001", request);
+
+        assertThat(result.name()).isEqualTo("New Name");
+        assertThat(result.stock()).isEqualTo(50);
+        verify(productRepository).save(any(Product.class));
+    }
+
+    // ─── Test 7: Update de producto inexistente lanza excepción ──────────────
+
+    @Test
+    void shouldThrowExceptionWhenUpdatingNonExistentProduct() {
+        var request = new UpdateProductRequest("Name", null, 10);
+
+        when(productRepository.findByTenantIdAndSku("tenant-a", "SKU-999")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> productService.updateProduct("tenant-a", "SKU-999", request))
+                .isInstanceOf(ProductNotFoundException.class)
+                .hasMessageContaining("SKU-999");
+
+        verify(productRepository, never()).save(any());
+    }
+
+    // ─── Test 8: Eliminar producto exitosamente ───────────────────────────────
+
+    @Test
+    void shouldDeleteProductSuccessfully() {
+        var existing = buildProduct("tenant-a", "SKU-001");
+
+        when(productRepository.findByTenantIdAndSku("tenant-a", "SKU-001")).thenReturn(Optional.of(existing));
+
+        productService.deleteProduct("tenant-a", "SKU-001");
+
+        verify(productRepository).delete(existing);
+    }
+
+    // ─── Test 9: Delete de producto inexistente lanza excepción ──────────────
+
+    @Test
+    void shouldThrowExceptionWhenDeletingNonExistentProduct() {
+        when(productRepository.findByTenantIdAndSku("tenant-a", "SKU-999")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> productService.deleteProduct("tenant-a", "SKU-999"))
+                .isInstanceOf(ProductNotFoundException.class)
+                .hasMessageContaining("SKU-999");
+
+        verify(productRepository, never()).delete(any(Product.class));
     }
 
     // ─── Helpers ───────────────────────────────────────────────────────────────
