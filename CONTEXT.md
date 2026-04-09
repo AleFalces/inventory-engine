@@ -50,6 +50,20 @@ Product
 └── version: Long (@Version — bloqueo optimista para concurrencia)
 ```
 
+## Infraestructura y CI/CD
+
+| Componente | Detalle |
+|------------|---------|
+| CI | GitHub Actions — corre en cada push a `main` y en PRs |
+| Runner | `ubuntu-latest` (Docker incluido — soporta Testcontainers) |
+| Pipeline | `./mvnw test` completo: unitarios + integración con PostgreSQL real |
+| Artefactos | Surefire reports subidos automáticamente si hay fallo |
+| Base local | `docker compose up -d` → `omnicore-postgres` en puerto 5433 |
+
+**Garantía**: el pipeline ejecuta los tests de aislamiento multi-tenant en cada integración, asegurando que ningún cambio pueda romper la separación de datos entre tenants.
+
+---
+
 ## Decisiones de Diseño
 
 | Decisión | Razón |

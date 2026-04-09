@@ -40,7 +40,15 @@ com.omnicore.inventory_engine
 └── config/
 ```
 
+## Calidad y CI/CD
+
+- **No se permite código sin tests**: todo método de producción nuevo debe tener al menos un test unitario o de integración que lo cubra.
+- **Validación local antes de commitear**: `./mvnw test` debe pasar en verde completo.
+- **GitHub Actions**: el pipeline CI corre automáticamente en cada push a `main` y en cada PR. Si los tests fallan, el push no se considera válido.
+- **Docker requerido**: los tests de integración usan Testcontainers — Docker Desktop debe estar corriendo localmente.
+
 ## Notas del Proyecto
 
 - Tests usan Testcontainers con PostgreSQL real — sin H2.
 - Lombok y MapStruct ya están en `pom.xml` con sus annotation processors configurados.
+- Base de datos local: `docker compose up -d` (puerto 5433, contenedor `omnicore-postgres`).
