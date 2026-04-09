@@ -2,6 +2,7 @@ package com.omnicore.inventory_engine.domain.service;
 
 import com.omnicore.inventory_engine.api.dto.CreateProductRequest;
 import com.omnicore.inventory_engine.api.dto.ProductResponse;
+import com.omnicore.inventory_engine.api.dto.StockAdjustRequest;
 import com.omnicore.inventory_engine.api.dto.UpdateProductRequest;
 import com.omnicore.inventory_engine.api.mapper.ProductMapper;
 import com.omnicore.inventory_engine.domain.entity.Product;
@@ -176,6 +177,54 @@ class ProductServiceTest {
                 .hasMessageContaining("SKU-999");
 
         verify(productRepository, never()).delete(any(Product.class));
+    }
+
+    // ─── Test 16: Ajuste de stock exitoso ─────────────────────────────────────
+
+    @Test
+    void shouldAdjustStockSuccessfully() {
+        var existing = buildProduct("tenant-a", "SKU-001"); // stock = 100
+        var request  = new StockAdjustRequest(-20, "OUT");
+        var updated  = new ProductResponse(1L, "tenant-a", "SKU-001", "Widget", null, 80);
+
+        when(productRepository.findByTenantIdAndSku("tenant-a", "SKU-001")).thenReturn(Optional.of(existing));
+        when(productRepository.save(any(Product.class))).thenReturn(existing);
+        when(productMapper.toResponse(existing)).thenReturn(updated);
+
+        ProductResponse result = productService.adjustStock("tenant-a", "SKU-001", request);
+
+        assertThat(result.stock()).isEqualTo(80);
+        verify(productRepository).save(any(Product.class));
+    }
+
+    // ─── Test 17: Ajuste sobre producto inexistente ───────────────────────────
+
+    @Test
+    void shouldThrowExceptionWhenProductNotFoundOnAdjust() {
+        var request = new StockAdjustRequest(10, "IN");
+
+        when(productRepository.findByTenantIdAndSku("tenant-a", "SKU-999")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> productService.adjustStock("tenant-a", "SKU-999", request))
+                .isInstanceOf(ProductNotFoundException.class)
+                .hasMessageContaining("SKU-999");
+
+        verify(productRepository, never()).save(any());
+    }
+
+    // ─── Test 18: Stock insuficiente para salida ──────────────────────────────
+
+    @Test
+    void shouldThrowExceptionWhenStockWouldGoBelowZero() {
+        var existing = buildProduct("tenant-a", "SKU-001"); // stock = 100
+        var request  = new StockAdjustRequest(-150, "OUT");
+
+        when(productRepository.findByTenantIdAndSku("tenant-a", "SKU-001")).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> productService.adjustStock("tenant-a", "SKU-001", request))
+                .isInstanceOf(InsufficientStockException.class);
+
+        verify(productRepository, never()).save(any());
     }
 
     // ─── Helpers ───────────────────────────────────────────────────────────────

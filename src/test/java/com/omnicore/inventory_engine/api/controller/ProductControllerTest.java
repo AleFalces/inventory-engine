@@ -3,7 +3,9 @@ package com.omnicore.inventory_engine.api.controller;
 import tools.jackson.databind.ObjectMapper;
 import com.omnicore.inventory_engine.api.dto.CreateProductRequest;
 import com.omnicore.inventory_engine.api.dto.ProductResponse;
+import com.omnicore.inventory_engine.api.dto.StockAdjustRequest;
 import com.omnicore.inventory_engine.api.dto.UpdateProductRequest;
+import com.omnicore.inventory_engine.domain.service.InsufficientStockException;
 import com.omnicore.inventory_engine.domain.service.ProductAlreadyExistsException;
 import com.omnicore.inventory_engine.domain.service.ProductNotFoundException;
 import com.omnicore.inventory_engine.domain.service.ProductService;
@@ -180,6 +182,54 @@ class ProductControllerTest {
         mockMvc.perform(delete("/api/v1/products/SKU-999")
                         .header("X-Tenant-ID", "tenant-a"))
                 .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // ─── POST /api/v1/products/{sku}/adjust ───────────────────────────────────
+
+    @Test
+    void shouldAdjustStockAndReturn200() throws Exception {
+        var request  = new StockAdjustRequest(-10, "OUT");
+        var response = new ProductResponse(1L, "tenant-a", "SKU-001", "Widget", null, 90);
+
+        when(productService.adjustStock(eq("tenant-a"), eq("SKU-001"), any(StockAdjustRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/products/SKU-001/adjust")
+                        .header("X-Tenant-ID", "tenant-a")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stock").value(90));
+    }
+
+    @Test
+    void shouldReturn404WhenAdjustingNonExistentProduct() throws Exception {
+        var request = new StockAdjustRequest(10, "IN");
+
+        when(productService.adjustStock(eq("tenant-a"), eq("SKU-999"), any()))
+                .thenThrow(new ProductNotFoundException("tenant-a", "SKU-999"));
+
+        mockMvc.perform(post("/api/v1/products/SKU-999/adjust")
+                        .header("X-Tenant-ID", "tenant-a")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void shouldReturn422WhenStockWouldGoBelowZero() throws Exception {
+        var request = new StockAdjustRequest(-999, "OUT");
+
+        when(productService.adjustStock(eq("tenant-a"), eq("SKU-001"), any()))
+                .thenThrow(new InsufficientStockException("tenant-a", "SKU-001", 50, -999));
+
+        mockMvc.perform(post("/api/v1/products/SKU-001/adjust")
+                        .header("X-Tenant-ID", "tenant-a")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.message").exists());
     }
 }

@@ -1,6 +1,7 @@
 package com.omnicore.inventory_engine.api.controller;
 
 import com.omnicore.inventory_engine.api.dto.ErrorResponse;
+import com.omnicore.inventory_engine.domain.service.InsufficientStockException;
 import com.omnicore.inventory_engine.domain.service.ProductAlreadyExistsException;
 import com.omnicore.inventory_engine.domain.service.ProductNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -21,6 +22,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ProductAlreadyExistsException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleConflict(ProductAlreadyExistsException ex) {
+        return new ErrorResponse(ex.getMessage());
+    }
+
+    @ExceptionHandler(InsufficientStockException.class)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    public ErrorResponse handleInsufficientStock(InsufficientStockException ex) {
         return new ErrorResponse(ex.getMessage());
     }
 

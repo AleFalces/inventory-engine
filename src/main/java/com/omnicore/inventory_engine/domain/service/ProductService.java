@@ -2,6 +2,7 @@ package com.omnicore.inventory_engine.domain.service;
 
 import com.omnicore.inventory_engine.api.dto.CreateProductRequest;
 import com.omnicore.inventory_engine.api.dto.ProductResponse;
+import com.omnicore.inventory_engine.api.dto.StockAdjustRequest;
 import com.omnicore.inventory_engine.api.dto.UpdateProductRequest;
 import com.omnicore.inventory_engine.api.mapper.ProductMapper;
 import com.omnicore.inventory_engine.domain.repository.ProductRepository;
@@ -63,5 +64,19 @@ public class ProductService {
                 .orElseThrow(() -> new ProductNotFoundException(tenantId, sku));
 
         productRepository.delete(product);
+    }
+
+    @Transactional
+    public ProductResponse adjustStock(String tenantId, String sku, StockAdjustRequest request) {
+        var product = productRepository.findByTenantIdAndSku(tenantId, sku)
+                .orElseThrow(() -> new ProductNotFoundException(tenantId, sku));
+
+        int newStock = product.getStock() + request.delta();
+        if (newStock < 0) {
+            throw new InsufficientStockException(tenantId, sku, product.getStock(), request.delta());
+        }
+
+        product.setStock(newStock);
+        return productMapper.toResponse(productRepository.save(product));
     }
 }

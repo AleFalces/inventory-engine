@@ -125,4 +125,36 @@ class ProductRepositoryTest {
         var result = productRepository.findByTenantIdAndSku("tenant-a", "SKU-DEL");
         assertThat(result).isEmpty();
     }
+
+    // ─── Test 7: Incrementar stock ─────────────────────────────────────────────
+
+    @Test
+    void shouldIncrementStockAtomically() {
+        var saved = productRepository.save(
+                Product.builder().tenantId("tenant-a").sku("SKU-001").name("Widget").stock(50).build()
+        );
+
+        saved.setStock(saved.getStock() + 30);
+        productRepository.save(saved);
+
+        var result = productRepository.findByTenantIdAndSku("tenant-a", "SKU-001");
+        assertThat(result).isPresent();
+        assertThat(result.get().getStock()).isEqualTo(80);
+    }
+
+    // ─── Test 8: Decrementar stock ─────────────────────────────────────────────
+
+    @Test
+    void shouldDecrementStockAtomically() {
+        var saved = productRepository.save(
+                Product.builder().tenantId("tenant-a").sku("SKU-001").name("Widget").stock(50).build()
+        );
+
+        saved.setStock(saved.getStock() - 20);
+        productRepository.save(saved);
+
+        var result = productRepository.findByTenantIdAndSku("tenant-a", "SKU-001");
+        assertThat(result).isPresent();
+        assertThat(result.get().getStock()).isEqualTo(30);
+    }
 }

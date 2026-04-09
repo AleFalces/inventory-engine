@@ -2,6 +2,7 @@ package com.omnicore.inventory_engine.api.controller;
 
 import com.omnicore.inventory_engine.api.dto.CreateProductRequest;
 import com.omnicore.inventory_engine.api.dto.ProductResponse;
+import com.omnicore.inventory_engine.api.dto.StockAdjustRequest;
 import com.omnicore.inventory_engine.api.dto.UpdateProductRequest;
 import com.omnicore.inventory_engine.domain.service.ProductService;
 import jakarta.validation.Valid;
@@ -54,5 +55,13 @@ public class ProductController {
             @RequestHeader("X-Tenant-ID") String tenantId,
             @PathVariable String sku) {
         productService.deleteProduct(tenantId, sku);
+    }
+
+    @PostMapping("/{sku}/adjust")
+    public ProductResponse adjust(
+            @RequestHeader("X-Tenant-ID") String tenantId,
+            @PathVariable String sku,
+            @Valid @RequestBody StockAdjustRequest request) {
+        return productService.adjustStock(tenantId, sku, request);
     }
 }
