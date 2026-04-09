@@ -45,7 +45,7 @@ public class ProductController {
             @RequestHeader("X-Tenant-ID") String tenantId,
             @PathVariable String sku,
             @Valid @RequestBody UpdateProductRequest request) {
-        throw new UnsupportedOperationException("not implemented");
+        return productService.updateProduct(tenantId, sku, request);
     }
 
     @DeleteMapping("/{sku}")
@@ -53,6 +53,6 @@ public class ProductController {
     public void delete(
             @RequestHeader("X-Tenant-ID") String tenantId,
             @PathVariable String sku) {
-        throw new UnsupportedOperationException("not implemented");
+        productService.deleteProduct(tenantId, sku);
     }
 }

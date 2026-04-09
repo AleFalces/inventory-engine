@@ -47,11 +47,21 @@ public class ProductService {
 
     @Transactional
     public ProductResponse updateProduct(String tenantId, String sku, UpdateProductRequest request) {
-        throw new UnsupportedOperationException("not implemented");
+        var product = productRepository.findByTenantIdAndSku(tenantId, sku)
+                .orElseThrow(() -> new ProductNotFoundException(tenantId, sku));
+
+        product.setName(request.name());
+        product.setDescription(request.description());
+        product.setStock(request.stock());
+
+        return productMapper.toResponse(productRepository.save(product));
     }
 
     @Transactional
     public void deleteProduct(String tenantId, String sku) {
-        throw new UnsupportedOperationException("not implemented");
+        var product = productRepository.findByTenantIdAndSku(tenantId, sku)
+                .orElseThrow(() -> new ProductNotFoundException(tenantId, sku));
+
+        productRepository.delete(product);
     }
 }
