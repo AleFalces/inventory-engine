@@ -3,6 +3,7 @@ package com.omnicore.inventory_engine.api.controller;
 import com.omnicore.inventory_engine.api.dto.CreateProductRequest;
 import com.omnicore.inventory_engine.api.dto.ProductResponse;
 import com.omnicore.inventory_engine.api.dto.StockAdjustRequest;
+import com.omnicore.inventory_engine.api.dto.StockMovementResponse;
 import com.omnicore.inventory_engine.api.dto.UpdateProductRequest;
 import com.omnicore.inventory_engine.domain.service.ProductService;
 import jakarta.validation.Valid;
@@ -11,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+
 
 // TODO Phase 4: reemplazar @RequestHeader("X-Tenant-ID") por extracción desde JWT/SecurityContext
 @RestController
@@ -55,6 +57,13 @@ public class ProductController {
             @RequestHeader("X-Tenant-ID") String tenantId,
             @PathVariable String sku) {
         productService.deleteProduct(tenantId, sku);
+    }
+
+    @GetMapping("/{sku}/movements")
+    public List<StockMovementResponse> movements(
+            @RequestHeader("X-Tenant-ID") String tenantId,
+            @PathVariable String sku) {
+        return productService.findMovements(tenantId, sku);
     }
 
     @PostMapping("/{sku}/adjust")

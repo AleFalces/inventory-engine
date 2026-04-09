@@ -6,7 +6,9 @@ import com.omnicore.inventory_engine.api.dto.StockAdjustRequest;
 import com.omnicore.inventory_engine.api.dto.UpdateProductRequest;
 import com.omnicore.inventory_engine.api.mapper.ProductMapper;
 import com.omnicore.inventory_engine.domain.entity.Product;
+import com.omnicore.inventory_engine.domain.entity.StockMovement;
 import com.omnicore.inventory_engine.domain.repository.ProductRepository;
+import com.omnicore.inventory_engine.domain.repository.StockMovementRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,12 +22,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
 
     @Mock
     private ProductRepository productRepository;
+
+    @Mock
+    private StockMovementRepository stockMovementRepository;
 
     @Mock
     private ProductMapper productMapper;
@@ -179,7 +185,45 @@ class ProductServiceTest {
         verify(productRepository, never()).delete(any(Product.class));
     }
 
-    // ─── Test 16: Ajuste de stock exitoso ─────────────────────────────────────
+    // ─── Test 16: adjustStock persiste el movimiento ─────────────────────────
+
+    @Test
+    void shouldPersistMovementWhenAdjustingStock() {
+        var existing = buildProduct("tenant-a", "SKU-001"); // stock = 100
+        var request  = new StockAdjustRequest(-10, "OUT");
+        var updated  = new ProductResponse(1L, "tenant-a", "SKU-001", "Widget", null, 90);
+
+        when(productRepository.findByTenantIdAndSku("tenant-a", "SKU-001")).thenReturn(Optional.of(existing));
+        when(productRepository.save(any(Product.class))).thenReturn(existing);
+        when(productMapper.toResponse(existing)).thenReturn(updated);
+
+        productService.adjustStock("tenant-a", "SKU-001", request);
+
+        verify(stockMovementRepository).save(any(StockMovement.class));
+    }
+
+    // ─── Test 17: stockBefore y stockAfter correctos ──────────────────────────
+
+    @Test
+    void shouldRecordStockBeforeAndAfterValues() {
+        var existing = buildProduct("tenant-a", "SKU-001"); // stock = 100
+        var request  = new StockAdjustRequest(-10, "OUT");
+        var updated  = new ProductResponse(1L, "tenant-a", "SKU-001", "Widget", null, 90);
+
+        when(productRepository.findByTenantIdAndSku("tenant-a", "SKU-001")).thenReturn(Optional.of(existing));
+        when(productRepository.save(any(Product.class))).thenReturn(existing);
+        when(productMapper.toResponse(existing)).thenReturn(updated);
+
+        productService.adjustStock("tenant-a", "SKU-001", request);
+
+        var captor = ArgumentCaptor.forClass(StockMovement.class);
+        verify(stockMovementRepository).save(captor.capture());
+        assertThat(captor.getValue().getStockBefore()).isEqualTo(100);
+        assertThat(captor.getValue().getStockAfter()).isEqualTo(90);
+        assertThat(captor.getValue().getReason()).isEqualTo("OUT");
+    }
+
+    // ─── Test 18: Ajuste de stock exitoso ─────────────────────────────────────
 
     @Test
     void shouldAdjustStockSuccessfully() {
