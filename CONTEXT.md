@@ -71,7 +71,7 @@ Product
 | 2 | `ProductService` + tests de servicio | ✅ Completo |
 | 3 | `ProductController` + DTOs + MapStruct + tests de controller | ✅ Completo |
 | 4 | CRUD completo — `PUT /{sku}` y `DELETE /{sku}` | ✅ Completo |
-| 5 | Ajuste de stock (`POST /{sku}/adjust`) + optimistic locking | 🔲 Pendiente |
+| 5 | Ajuste de stock (`POST /{sku}/adjust`) + optimistic locking | ✅ Completo |
 | 6 | Entidad `StockMovement` (trazabilidad de movimientos) | 🔲 Pendiente |
 | 7 | Paginación en `GET /products` | 🔲 Pendiente |
 | 8 | Spring Security + JWT (reemplazar header `X-Tenant-ID`) | 🔲 Pendiente |
@@ -90,31 +90,59 @@ Product
 
 ---
 
-## Fase 5 — Ajuste de Stock (próxima)
+## Fase 5 — Ajuste de Stock ✅
 
-**Objetivo**: operación atómica para incrementar o decrementar stock usando `@Version` (optimistic locking).
+**Completado**: `POST /{sku}/adjust` implementado con TDD. 33/33 tests en verde.
 
-### Endpoint
-`POST /api/v1/products/{sku}/adjust` con body `{ "delta": -10, "reason": "SALE" }`
+### Artefactos entregados
+- DTO `StockAdjustRequest` (record): `delta` (Integer), `reason` (String)
+- Excepción `InsufficientStockException` → HTTP 422
+- `ProductService.adjustStock(tenantId, sku, request)` → `ProductResponse`
+- `GlobalExceptionHandler` actualizado con handler 422
+- Endpoint `POST /{sku}/adjust` en `ProductController`
+
+### Lógica implementada
+```
+newStock = product.stock + delta
+if newStock < 0 → InsufficientStockException (422)
+else → product.stock = newStock → save() con @Version
+```
+
+---
+
+## Fase 6 — StockMovement (próxima)
+
+**Objetivo**: registrar cada ajuste de stock como un evento persistente para trazabilidad.
+
+### Modelo propuesto
+```
+StockMovement
+├── id: Long (PK)
+├── tenantId: String (NOT NULL)
+├── productSku: String (NOT NULL)
+├── delta: Integer (NOT NULL)
+├── reason: String (NOT NULL)
+├── stockBefore: Integer
+├── stockAfter: Integer
+└── createdAt: Instant
+```
 
 ### Tests a escribir (antes del código de producción)
 
-#### ProductRepositoryTest
-- `shouldIncrementStockAtomically` — delta positivo, verificar nuevo stock
-- `shouldDecrementStockAtomically` — delta negativo, verificar nuevo stock
+#### StockMovementRepositoryTest
+- `shouldPersistMovementWithAllFields`
+- `shouldFindAllMovementsByTenantAndSku`
+- `shouldIsolateMovementsBetweenTenants`
 
-#### ProductServiceTest
-- `shouldAdjustStockSuccessfully` — happy path
-- `shouldThrowExceptionWhenProductNotFoundOnAdjust` — SKU inexistente
-- `shouldThrowExceptionWhenStockWouldGoBelowZero` — stock insuficiente
+#### ProductServiceTest (ampliar adjustStock)
+- `shouldPersistMovementWhenAdjustingStock` — verificar que se guarda el movimiento
+- `shouldRecordStockBeforeAndAfterValues` — verificar stockBefore y stockAfter correctos
 
-#### ProductControllerTest
-- `shouldAdjustStockAndReturn200` — `POST /{sku}/adjust` → 200 + body actualizado
-- `shouldReturn404WhenAdjustingNonExistentProduct` — 404
-- `shouldReturn422WhenStockWouldGoBelowZero` — 422 Unprocessable Entity
+#### StockMovementControllerTest (nuevo endpoint)
+- `shouldReturnMovementHistoryForProduct` — `GET /{sku}/movements` → lista de movimientos
 
 ### Artefactos nuevos
-- DTO `StockAdjustRequest` (record): `delta` (Integer, ≠ 0), `reason` (enum: `IN`, `OUT`, `ADJUSTMENT`)
-- Excepción `InsufficientStockException` → HTTP 422
-- `ProductService.adjustStock(tenantId, sku, request)` → `ProductResponse`
-- Endpoint `POST /{sku}/adjust` en `ProductController`
+- Entidad `StockMovement` + `StockMovementRepository`
+- DTO `StockMovementResponse` (record)
+- `ProductService.adjustStock()` ampliado para guardar el movimiento
+- `GET /api/v1/products/{sku}/movements` en `ProductController`
