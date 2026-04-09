@@ -70,7 +70,7 @@ Product
 | 1 | `Product` entity + `ProductRepository` + tests de persistencia | ✅ Completo |
 | 2 | `ProductService` + tests de servicio | ✅ Completo |
 | 3 | `ProductController` + DTOs + MapStruct + tests de controller | ✅ Completo |
-| 4 | CRUD completo — `PUT /{sku}` y `DELETE /{sku}` | 🔲 Pendiente |
+| 4 | CRUD completo — `PUT /{sku}` y `DELETE /{sku}` | ✅ Completo |
 | 5 | Ajuste de stock (`POST /{sku}/adjust`) + optimistic locking | 🔲 Pendiente |
 | 6 | Entidad `StockMovement` (trazabilidad de movimientos) | 🔲 Pendiente |
 | 7 | Paginación en `GET /products` | 🔲 Pendiente |
@@ -78,30 +78,43 @@ Product
 
 ---
 
-## Fase 4 — CRUD Completo (próxima)
+## Fase 4 — CRUD Completo ✅
 
-**Objetivo**: agregar `PUT /{sku}` (update) y `DELETE /{sku}` a las tres capas, TDD estricto.
+**Completado**: `PUT /{sku}` y `DELETE /{sku}` implementados con TDD. 25/25 tests en verde.
 
-### Tests a escribir (antes del código de producción)
-
-#### ProductRepositoryTest
-- `shouldUpdateProductFields` — persistir cambios de nombre/descripción/stock y verificar
-- `shouldDeleteProductByTenantIdAndSku` — borrar y comprobar que no se encuentra
-
-#### ProductServiceTest
-- `shouldUpdateProductSuccessfully` — happy path update
-- `shouldThrowExceptionWhenUpdatingNonExistentProduct` — `ProductNotFoundException`
-- `shouldDeleteProductSuccessfully` — happy path delete
-- `shouldThrowExceptionWhenDeletingNonExistentProduct` — `ProductNotFoundException`
-
-#### ProductControllerTest
-- `shouldUpdateProductAndReturn200` — `PUT /{sku}` → 200 + body
-- `shouldReturn404WhenUpdatingNonExistentProduct` — 404
-- `shouldDeleteProductAndReturn204` — `DELETE /{sku}` → 204
-- `shouldReturn404WhenDeletingNonExistentProduct` — 404
-
-### Artefactos nuevos
+### Artefactos entregados
 - DTO `UpdateProductRequest` (record): `name`, `description`, `stock`
 - `ProductService.updateProduct(tenantId, sku, request)` → `ProductResponse`
 - `ProductService.deleteProduct(tenantId, sku)` → `void`
 - `ProductController` — endpoints `PUT /{sku}` y `DELETE /{sku}`
+
+---
+
+## Fase 5 — Ajuste de Stock (próxima)
+
+**Objetivo**: operación atómica para incrementar o decrementar stock usando `@Version` (optimistic locking).
+
+### Endpoint
+`POST /api/v1/products/{sku}/adjust` con body `{ "delta": -10, "reason": "SALE" }`
+
+### Tests a escribir (antes del código de producción)
+
+#### ProductRepositoryTest
+- `shouldIncrementStockAtomically` — delta positivo, verificar nuevo stock
+- `shouldDecrementStockAtomically` — delta negativo, verificar nuevo stock
+
+#### ProductServiceTest
+- `shouldAdjustStockSuccessfully` — happy path
+- `shouldThrowExceptionWhenProductNotFoundOnAdjust` — SKU inexistente
+- `shouldThrowExceptionWhenStockWouldGoBelowZero` — stock insuficiente
+
+#### ProductControllerTest
+- `shouldAdjustStockAndReturn200` — `POST /{sku}/adjust` → 200 + body actualizado
+- `shouldReturn404WhenAdjustingNonExistentProduct` — 404
+- `shouldReturn422WhenStockWouldGoBelowZero` — 422 Unprocessable Entity
+
+### Artefactos nuevos
+- DTO `StockAdjustRequest` (record): `delta` (Integer, ≠ 0), `reason` (enum: `IN`, `OUT`, `ADJUSTMENT`)
+- Excepción `InsufficientStockException` → HTTP 422
+- `ProductService.adjustStock(tenantId, sku, request)` → `ProductResponse`
+- Endpoint `POST /{sku}/adjust` en `ProductController`
