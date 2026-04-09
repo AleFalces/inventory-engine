@@ -86,7 +86,7 @@ Product
 | 3 | `ProductController` + DTOs + MapStruct + tests de controller | ✅ Completo |
 | 4 | CRUD completo — `PUT /{sku}` y `DELETE /{sku}` | ✅ Completo |
 | 5 | Ajuste de stock (`POST /{sku}/adjust`) + optimistic locking | ✅ Completo |
-| 6 | Entidad `StockMovement` (trazabilidad de movimientos) | 🔲 Pendiente |
+| 6 | Entidad `StockMovement` (trazabilidad de movimientos) | ✅ Completo |
 | 7 | Paginación en `GET /products` | 🔲 Pendiente |
 | 8 | Spring Security + JWT (reemplazar header `X-Tenant-ID`) | 🔲 Pendiente |
 
@@ -124,39 +124,40 @@ else → product.stock = newStock → save() con @Version
 
 ---
 
-## Fase 6 — StockMovement (próxima)
+## Fase 6 — StockMovement ✅
 
-**Objetivo**: registrar cada ajuste de stock como un evento persistente para trazabilidad.
+**Completado**: trazabilidad de movimientos implementada con TDD. 39/39 tests en verde.
 
-### Modelo propuesto
-```
-StockMovement
-├── id: Long (PK)
-├── tenantId: String (NOT NULL)
-├── productSku: String (NOT NULL)
-├── delta: Integer (NOT NULL)
-├── reason: String (NOT NULL)
-├── stockBefore: Integer
-├── stockAfter: Integer
-└── createdAt: Instant
-```
+### Artefactos entregados
+- Entidad `StockMovement` (tenantId, productSku, delta, reason, stockBefore, stockAfter, createdAt)
+- `StockMovementRepository.findAllByTenantIdAndProductSku()`
+- DTO `StockMovementResponse` (record)
+- `ProductService.adjustStock()` ampliado: persiste movimiento en cada ajuste
+- `ProductService.findMovements(tenantId, sku)` → lista de movimientos
+- `GET /api/v1/products/{sku}/movements` en `ProductController`
+
+---
+
+## Fase 7 — Paginación (próxima)
+
+**Objetivo**: evitar que `GET /products` devuelva toda la tabla en un solo request. Agregar soporte de paginación con `page`, `size` y `sort`.
+
+### Endpoint actualizado
+`GET /api/v1/products?page=0&size=20&sort=name,asc` → `Page<ProductResponse>`
 
 ### Tests a escribir (antes del código de producción)
 
-#### StockMovementRepositoryTest
-- `shouldPersistMovementWithAllFields`
-- `shouldFindAllMovementsByTenantAndSku`
-- `shouldIsolateMovementsBetweenTenants`
+#### ProductRepositoryTest
+- `shouldReturnPagedProducts` — verificar que devuelve solo la cantidad pedida
+- `shouldReturnSecondPage` — verificar offset correcto
 
-#### ProductServiceTest (ampliar adjustStock)
-- `shouldPersistMovementWhenAdjustingStock` — verificar que se guarda el movimiento
-- `shouldRecordStockBeforeAndAfterValues` — verificar stockBefore y stockAfter correctos
+#### ProductServiceTest
+- `shouldReturnPagedResultsForTenant` — service devuelve `Page<ProductResponse>`
 
-#### StockMovementControllerTest (nuevo endpoint)
-- `shouldReturnMovementHistoryForProduct` — `GET /{sku}/movements` → lista de movimientos
+#### ProductControllerTest
+- `shouldReturnPagedProductList` — `GET /products?page=0&size=2` → JSON con `content`, `totalElements`
 
-### Artefactos nuevos
-- Entidad `StockMovement` + `StockMovementRepository`
-- DTO `StockMovementResponse` (record)
-- `ProductService.adjustStock()` ampliado para guardar el movimiento
-- `GET /api/v1/products/{sku}/movements` en `ProductController`
+### Artefactos a modificar
+- `ProductRepository` — agregar `findAllByTenantId(String tenantId, Pageable pageable)`
+- `ProductService.findAllByTenant()` — recibe `Pageable`, retorna `Page<ProductResponse>`
+- `ProductController.findAll()` — acepta `@PageableDefault Pageable pageable`

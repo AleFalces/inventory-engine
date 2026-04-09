@@ -425,7 +425,7 @@
   <!-- ══ SIDEBAR ══════════════════════════════════════════════ -->
   <aside class="sidebar">
     <div class="sidebar-logo">OmniCore</div>
-    <div class="sidebar-sub">Inventory Engine — Docs v0.5</div>
+    <div class="sidebar-sub">Inventory Engine — Docs v0.6</div>
     <nav>
       <div class="section-title">Introducción</div>
       <a href="#que-es">¿Qué es este proyecto?</a>
@@ -446,6 +446,8 @@
 
       <div class="section-title">En progreso</div>
       <a href="#fase5">Fase 5 — Ajuste de stock</a>
+      <a href="#fase6">Fase 6 — StockMovement</a>
+      <a href="#fase7">Fase 7 — Paginación</a>
 
       <div class="section-title">Comandos</div>
       <a href="#comandos">Referencia rápida</a>
@@ -1078,6 +1080,20 @@
             <td><code>/api/v1/products/{sku}/adjust</code></td>
             <td>Ajustar stock (entrada / salida)</td>
             <td>200 / 404 / 422</td>
+            <td><span class="badge badge-green">✓ Listo</span></td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-blue">GET</span></td>
+            <td><code>/api/v1/products/{sku}/movements</code></td>
+            <td>Historial de movimientos de stock</td>
+            <td>200</td>
+            <td><span class="badge badge-green">✓ Listo</span></td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-blue">GET</span></td>
+            <td><code>/api/v1/products?page=0&amp;size=20</code></td>
+            <td>Lista paginada de productos</td>
+            <td>200</td>
             <td><span class="badge badge-yellow">Próxima</span></td>
           </tr>
         </tbody>
@@ -1146,12 +1162,12 @@ curl http://localhost:8080/api/v1/products/SKU-001 \
     <section class="section" id="tests">
       <div class="section-header">
         <div class="section-number">11</div>
-        <h2>Los tests — 25/25 en verde</h2>
+        <h2>Los tests — 39/39 en verde</h2>
       </div>
 
       <p>
-        El proyecto tiene <strong>25 tests</strong> en 3 clases, todos en verde.
-        Cubren las Fases 1 a 4: persistencia, lógica de negocio y API REST completa.
+        El proyecto tiene <strong>39 tests</strong> en 5 clases, todos en verde.
+        Cubren las Fases 1 a 6: persistencia, lógica de negocio, API REST completa y trazabilidad de movimientos.
       </p>
 
       <h3>ProductRepositoryTest — 6 tests <span class="badge badge-green">Integración</span></h3>
@@ -1264,7 +1280,7 @@ curl http://localhost:8080/api/v1/products/SKU-001 \
 
       <div class="callout callout-tip">
         <div class="callout-label">Correr todos los tests</div>
-        <p>Necesitás Docker corriendo (para Testcontainers). Luego: <code>./mvnw test</code> → <strong>25/25 en verde</strong>.</p>
+        <p>Necesitás Docker corriendo (para Testcontainers). Luego: <code>./mvnw test</code> → <strong>39/39 en verde</strong>.</p>
       </div>
     </section>
 
@@ -1326,55 +1342,105 @@ curl http://localhost:8080/api/v1/products/SKU-001 \
     <!-- ══ FASE 5 — AJUSTE DE STOCK ══════════════════════════════════ -->
     <section class="section" id="fase5">
       <div class="section-header">
-        <div class="section-number" style="background:rgba(251,191,36,0.15);border-color:rgba(251,191,36,0.4);color:var(--yellow);">5</div>
-        <h2>Fase 5 — Ajuste de stock <span class="badge badge-yellow">Próxima</span></h2>
+        <div class="section-number" style="background:rgba(52,211,153,0.15);border-color:rgba(52,211,153,0.4);color:var(--green);">5</div>
+        <h2>Fase 5 — Ajuste de stock <span class="badge badge-green">✓ Completa</span></h2>
       </div>
 
-      <p>
-        El corazón del motor de inventario: una operación atómica para incrementar o decrementar
-        stock. Usa el campo <code>@Version</code> ya presente en <code>Product</code> para
-        garantizar consistencia ante escrituras concurrentes (optimistic locking).
-      </p>
+      <p>Fase completada con <strong>33/33 tests en verde</strong>. Implementa la operación atómica de ajuste de stock con validación de stock mínimo (≥ 0) y optimistic locking via <code>@Version</code>.</p>
+
+      <pre><code><span class="cm">// Lógica implementada en ProductService.adjustStock()</span>
+<span class="kw">int</span> newStock = product.getStock() + request.delta();
+<span class="kw">if</span> (newStock &lt; <span class="nu">0</span>) <span class="kw">throw new</span> <span class="cl">InsufficientStockException</span>(...);  <span class="cm">// → 422</span>
+product.setStock(newStock);
+productRepository.<span class="fn">save</span>(product);  <span class="cm">// @Version garantiza consistencia concurrente</span></code></pre>
+    </section>
+
+    <hr />
+
+    <!-- ══ FASE 6 — STOCK MOVEMENT ════════════════════════════════ -->
+    <section class="section" id="fase6">
+      <div class="section-header">
+        <div class="section-number" style="background:rgba(52,211,153,0.15);border-color:rgba(52,211,153,0.4);color:var(--green);">6</div>
+        <h2>Fase 6 — Trazabilidad de stock <span class="badge badge-green">✓ Completa</span></h2>
+      </div>
+
+      <p>Fase completada con <strong>39/39 tests en verde</strong>. Cada ajuste de stock queda registrado como un evento inmutable para auditoría.</p>
+
+      <h3>Modelo StockMovement</h3>
+      <pre><code><span class="an">@Entity</span>
+<span class="kw">public class</span> <span class="cl">StockMovement</span> {
+    <span class="kw">private</span> <span class="cl">String</span>  tenantId;     <span class="cm">// aislamiento multi-tenant</span>
+    <span class="kw">private</span> <span class="cl">String</span>  productSku;   <span class="cm">// SKU del producto afectado</span>
+    <span class="kw">private</span> <span class="cl">Integer</span> delta;        <span class="cm">// cantidad ajustada (+ entrada, - salida)</span>
+    <span class="kw">private</span> <span class="cl">String</span>  reason;       <span class="cm">// motivo del ajuste</span>
+    <span class="kw">private</span> <span class="cl">Integer</span> stockBefore;  <span class="cm">// stock antes del ajuste</span>
+    <span class="kw">private</span> <span class="cl">Integer</span> stockAfter;   <span class="cm">// stock después del ajuste</span>
+    <span class="kw">private</span> <span class="cl">Instant</span> createdAt;    <span class="cm">// timestamp del evento</span>
+}</code></pre>
 
       <div class="callout callout-why">
-        <div class="callout-label">¿Por qué es la operación más importante?</div>
+        <div class="callout-label">¿Por qué registrar movimientos?</div>
         <p>
-          En un sistema con múltiples usuarios simultáneos, dos ventas pueden llegar al mismo tiempo
-          para el último producto en stock. Sin control de concurrencia, ambas pasarían y el stock
-          quedaría en negativo. <code>@Version</code> detecta el conflicto y fuerza a reintentar.
+          Sin trazabilidad, si el stock de un producto baja de 100 a 0 no sabés si fueron 100 ventas,
+          un ajuste manual, o una pérdida por merma. El historial de movimientos permite auditar
+          cada cambio, detectar errores y cumplir con requisitos legales de inventario.
         </p>
       </div>
 
-      <h3>Endpoint</h3>
-      <pre><code>POST /api/v1/products/{sku}/adjust
-<span class="cm">// Body: { "delta": -10, "reason": "OUT" }</span>
-<span class="cm">// delta positivo = entrada de stock</span>
-<span class="cm">// delta negativo = salida de stock</span></code></pre>
+      <h3>Integración con adjustStock</h3>
+      <pre><code><span class="cm">// Cada vez que adjustStock() se llama, también persiste un movimiento</span>
+stockMovementRepository.<span class="fn">save</span>(<span class="cl">StockMovement</span>.builder()
+    .tenantId(tenantId).productSku(sku)
+    .delta(request.delta()).reason(request.reason())
+    .stockBefore(stockBefore).stockAfter(newStock)
+    .createdAt(<span class="cl">Instant</span>.now())
+    .build());</code></pre>
+    </section>
+
+    <hr />
+
+    <!-- ══ FASE 7 — PAGINACIÓN ════════════════════════════════════ -->
+    <section class="section" id="fase7">
+      <div class="section-header">
+        <div class="section-number" style="background:rgba(251,191,36,0.15);border-color:rgba(251,191,36,0.4);color:var(--yellow);">7</div>
+        <h2>Fase 7 — Paginación <span class="badge badge-yellow">Próxima</span></h2>
+      </div>
+
+      <p>
+        Hoy <code>GET /products</code> devuelve todos los productos sin límite. Con miles de registros,
+        esto genera respuestas lentas y alto consumo de memoria. La paginación devuelve solo una
+        "página" de resultados a la vez.
+      </p>
+
+      <div class="callout callout-why">
+        <div class="callout-label">¿Por qué paginar?</div>
+        <p>
+          Una empresa con 50.000 productos no puede recibir toda la lista en un solo request.
+          La paginación hace la API predecible en tiempo de respuesta, sin importar cuántos
+          productos tenga el tenant.
+        </p>
+      </div>
+
+      <h3>Endpoint actualizado</h3>
+      <pre><code>GET /api/v1/products?page=0&size=20&sort=name,asc
+
+<span class="cm">// Respuesta: Page&lt;ProductResponse&gt;</span>
+{
+  "content": [ ... ],
+  "totalElements": 1500,
+  "totalPages": 75,
+  "size": 20,
+  "number": 0
+}</code></pre>
 
       <h3>Tests a escribir (TDD — RED primero)</h3>
-
       <table>
         <thead><tr><th>Clase</th><th>Test</th><th>Qué verifica</th></tr></thead>
         <tbody>
-          <tr><td>RepositoryTest</td><td>shouldIncrementStockAtomically</td><td>Delta positivo persiste correctamente</td></tr>
-          <tr><td>RepositoryTest</td><td>shouldDecrementStockAtomically</td><td>Delta negativo persiste correctamente</td></tr>
-          <tr><td>ServiceTest</td><td>shouldAdjustStockSuccessfully</td><td>Happy path completo</td></tr>
-          <tr><td>ServiceTest</td><td>shouldThrowWhenProductNotFoundOnAdjust</td><td>SKU inexistente → 404</td></tr>
-          <tr><td>ServiceTest</td><td>shouldThrowWhenStockWouldGoBelowZero</td><td>Stock insuficiente → excepción</td></tr>
-          <tr><td>ControllerTest</td><td>shouldAdjustStockAndReturn200</td><td>POST adjust → 200 + body</td></tr>
-          <tr><td>ControllerTest</td><td>shouldReturn404WhenAdjustingNonExistent</td><td>SKU inexistente → 404</td></tr>
-          <tr><td>ControllerTest</td><td>shouldReturn422WhenStockWouldGoBelowZero</td><td>Stock insuficiente → 422</td></tr>
-        </tbody>
-      </table>
-
-      <h3>Artefactos nuevos</h3>
-      <table>
-        <thead><tr><th>Artefacto</th><th>Detalle</th></tr></thead>
-        <tbody>
-          <tr><td><code>StockAdjustRequest</code></td><td>Record: <code>delta</code> (Integer ≠ 0), <code>reason</code> (enum IN/OUT/ADJUSTMENT)</td></tr>
-          <tr><td><code>InsufficientStockException</code></td><td>→ HTTP 422 Unprocessable Entity</td></tr>
-          <tr><td><code>ProductService.adjustStock()</code></td><td>Valida stock, aplica delta, guarda con @Version</td></tr>
-          <tr><td><code>POST /{sku}/adjust</code></td><td>Nuevo endpoint en ProductController</td></tr>
+          <tr><td>RepositoryTest</td><td>shouldReturnPagedProducts</td><td>Solo devuelve la cantidad pedida por página</td></tr>
+          <tr><td>RepositoryTest</td><td>shouldReturnSecondPage</td><td>Offset correcto en la segunda página</td></tr>
+          <tr><td>ServiceTest</td><td>shouldReturnPagedResultsForTenant</td><td>Service devuelve <code>Page&lt;ProductResponse&gt;</code></td></tr>
+          <tr><td>ControllerTest</td><td>shouldReturnPagedProductList</td><td><code>GET /products?page=0&size=2</code> → JSON con <code>content</code> y <code>totalElements</code></td></tr>
         </tbody>
       </table>
     </section>
