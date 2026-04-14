@@ -90,7 +90,9 @@ Product
 | 7 | Paginación en `GET /products` | ✅ Completo |
 | 8 | Spring Security + JWT (reemplazar header `X-Tenant-ID`) | ✅ Completo |
 | 9 | Endpoint de login (`POST /auth/login`) | ✅ Completo |
-| 10 | Registro de tenants (`POST /auth/register`) | 🔄 En progreso |
+| 10 | Registro de tenants (`POST /auth/register`) | ✅ Completo |
+| 11 | Validación de entrada (Bean Validation) | 🔲 Pendiente |
+| 12 | RBAC — roles por tenant (ADMIN / VIEWER) | 🔲 Pendiente |
 
 ---
 
@@ -233,3 +235,74 @@ Response 409: tenantId ya registrado
 - El endpoint es público (sin JWT) — se añade a la lista blanca en `SecurityConfig`
 - `tenantId` debe ser único — validado a nivel de BD (`unique = true`) y de servicio
 - No se devuelve token en el registro — el cliente debe hacer login después
+
+---
+
+## Fase 11 — Validación de Entrada (Bean Validation) 🔲
+
+**Objetivo**: rechazar requests malformados antes de que lleguen a la capa de servicio. Actualmente se pueden persistir `tenantId` vacío, SKU nulo, stock negativo, etc.
+
+### Campos a validar
+
+| DTO | Campo | Restricción |
+|-----|-------|-------------|
+| `CreateProductRequest` | `sku` | `@NotBlank` |
+| `CreateProductRequest` | `name` | `@NotBlank` |
+| `CreateProductRequest` | `stock` | `@NotNull @Min(0)` |
+| `UpdateProductRequest` | `name` | `@NotBlank` |
+| `UpdateProductRequest` | `stock` | `@NotNull @Min(0)` |
+| `StockAdjustRequest` | `delta` | `@NotNull` |
+| `StockAdjustRequest` | `reason` | `@NotBlank` |
+| `LoginRequest` | `tenantId` | `@NotBlank` |
+| `LoginRequest` | `password` | `@NotBlank` |
+| `RegisterRequest` | `tenantId` | `@NotBlank` |
+| `RegisterRequest` | `password` | `@NotBlank @Size(min=8)` |
+
+### Artefactos a entregar
+- Dependencia `spring-boot-starter-validation` en `pom.xml`
+- Anotaciones `@Valid` en todos los `@RequestBody` de controllers
+- Anotaciones de constraint en todos los DTOs afectados
+- `GlobalExceptionHandler` ya tiene handler 400 para `MethodArgumentNotValidException` — verificar que devuelve el campo con el error
+- Tests 400 en `AuthControllerTest`, `ProductControllerTest` para inputs inválidos
+
+### Decisiones de diseño
+- Records de Java admiten anotaciones de Bean Validation en los componentes del constructor
+- Respuesta 400 unificada vía `GlobalExceptionHandler` existente — sin cambios en el handler
+
+---
+
+## Fase 12 — RBAC: Roles por Tenant 🔲
+
+**Objetivo**: introducir roles `ADMIN` y `VIEWER` por tenant. `ADMIN` puede crear/editar/eliminar productos y ajustar stock. `VIEWER` solo puede leer.
+
+### Modelo de roles
+
+```
+ADMIN  → GET, POST, PUT, DELETE, POST /adjust
+VIEWER → GET únicamente
+```
+
+### Contrato
+
+| Endpoint | ADMIN | VIEWER |
+|----------|-------|--------|
+| `GET /products` | ✅ | ✅ |
+| `GET /products/{sku}` | ✅ | ✅ |
+| `POST /products` | ✅ | 403 |
+| `PUT /products/{sku}` | ✅ | 403 |
+| `DELETE /products/{sku}` | ✅ | 403 |
+| `POST /products/{sku}/adjust` | ✅ | 403 |
+| `GET /products/{sku}/movements` | ✅ | ✅ |
+
+### Artefactos a entregar
+- Campo `role` en entidad `Tenant` (enum: `ADMIN`, `VIEWER`)
+- Campo `role` en `RegisterRequest` (opcional, default `VIEWER`)
+- `role` incluido en el JWT como claim — `JwtUtil` actualizado
+- `JwtAuthenticationFilter` extrae el rol y lo añade como `GrantedAuthority`
+- `SecurityConfig` — `@EnableMethodSecurity` + `@PreAuthorize("hasRole('ADMIN')")` en endpoints de escritura
+- Tests de autorización: `VIEWER` recibe 403 en endpoints de escritura
+
+### Decisiones de diseño
+- El rol se almacena en BD y se embebe en el JWT — sin consulta a BD por request
+- `ADMIN` es el único rol que puede registrar otros tenants con rol `ADMIN` (fase futura)
+- Sin jerarquía de roles compleja — solo `ADMIN` y `VIEWER`
