@@ -3,10 +3,12 @@ package com.omnicore.inventory_engine.api.controller;
 import tools.jackson.databind.ObjectMapper;
 import com.omnicore.inventory_engine.api.dto.LoginRequest;
 import com.omnicore.inventory_engine.api.dto.LoginResponse;
+import com.omnicore.inventory_engine.api.dto.RefreshRequest;
 import com.omnicore.inventory_engine.api.dto.RegisterRequest;
 import com.omnicore.inventory_engine.api.dto.RegisterResponse;
 import com.omnicore.inventory_engine.domain.service.AuthService;
 import com.omnicore.inventory_engine.domain.service.InvalidCredentialsException;
+import com.omnicore.inventory_engine.domain.service.InvalidRefreshTokenException;
 import com.omnicore.inventory_engine.domain.service.TenantAlreadyExistsException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,7 +52,7 @@ class AuthControllerTest {
     @Test
     void shouldReturnTokenWhenCredentialsAreValid() throws Exception {
         var request  = new LoginRequest("acme", "secret");
-        var response = new LoginResponse("eyJhbGciOiJIUzI1NiJ9.test.token");
+        var response = new LoginResponse("eyJhbGciOiJIUzI1NiJ9.test.token", "refresh-uuid-token");
 
         when(authService.login("acme", "secret")).thenReturn(response);
 
@@ -58,7 +60,7 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").exists());
+                .andExpect(jsonPath("$.accessToken").exists());
     }
 
     @Test
@@ -136,6 +138,37 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"tenantId\":\"acme\",\"password\":\"123\"}"))
                 .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // ─── POST /api/v1/auth/refresh ────────────────────────────────────────────
+
+    @Test
+    void shouldReturnNewTokenPairWhenRefreshTokenIsValid() throws Exception {
+        var request  = new RefreshRequest("valid-refresh-uuid");
+        var response = new LoginResponse("new.access.token", "new-refresh-uuid");
+
+        when(authService.refresh("valid-refresh-uuid")).thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").exists())
+                .andExpect(jsonPath("$.refreshToken").exists());
+    }
+
+    @Test
+    void shouldReturn401WhenRefreshTokenIsInvalid() throws Exception {
+        var request = new RefreshRequest("expired-or-invalid-uuid");
+
+        when(authService.refresh("expired-or-invalid-uuid"))
+                .thenThrow(new InvalidRefreshTokenException());
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").exists());
     }
 }

@@ -16,7 +16,7 @@ class JwtUtilTest {
 
     @Test
     void shouldExtractTenantIdFromValidToken() {
-        String token = jwtUtil.generateToken("tenant-a", TenantRole.ADMIN);
+        String token = jwtUtil.generateAccessToken("tenant-a", TenantRole.ADMIN);
 
         assertThat(jwtUtil.extractTenantId(token)).isEqualTo("tenant-a");
     }
@@ -25,7 +25,7 @@ class JwtUtilTest {
 
     @Test
     void shouldReturnTrueForValidToken() {
-        String token = jwtUtil.generateToken("tenant-a", TenantRole.VIEWER);
+        String token = jwtUtil.generateAccessToken("tenant-a", TenantRole.VIEWER);
 
         assertThat(jwtUtil.isValid(token)).isTrue();
     }
@@ -42,7 +42,7 @@ class JwtUtilTest {
     @Test
     void shouldReturnFalseForTokenWithWrongSecret() {
         JwtUtil otherUtil = new JwtUtil("other-secret-key-also-at-least-256-bits-long-for-hmac");
-        String token = otherUtil.generateToken("tenant-a", TenantRole.ADMIN);
+        String token = otherUtil.generateAccessToken("tenant-a", TenantRole.ADMIN);
 
         assertThat(jwtUtil.isValid(token)).isFalse();
     }
@@ -51,7 +51,7 @@ class JwtUtilTest {
 
     @Test
     void shouldExtractRoleFromToken() {
-        String token = jwtUtil.generateToken("tenant-a", TenantRole.ADMIN);
+        String token = jwtUtil.generateAccessToken("tenant-a", TenantRole.ADMIN);
 
         assertThat(jwtUtil.extractRole(token)).isEqualTo(TenantRole.ADMIN);
     }

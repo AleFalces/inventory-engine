@@ -3,6 +3,7 @@ package com.omnicore.inventory_engine.api.controller;
 import com.omnicore.inventory_engine.api.dto.ErrorResponse;
 import com.omnicore.inventory_engine.domain.service.InsufficientStockException;
 import com.omnicore.inventory_engine.domain.service.InvalidCredentialsException;
+import com.omnicore.inventory_engine.domain.service.InvalidRefreshTokenException;
 import com.omnicore.inventory_engine.domain.service.TenantAlreadyExistsException;
 import com.omnicore.inventory_engine.domain.service.ProductAlreadyExistsException;
 import com.omnicore.inventory_engine.domain.service.ProductNotFoundException;
@@ -42,6 +43,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidCredentialsException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ErrorResponse handleInvalidCredentials(InvalidCredentialsException ex) {
+        return new ErrorResponse(ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorResponse handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
         return new ErrorResponse(ex.getMessage());
     }
 

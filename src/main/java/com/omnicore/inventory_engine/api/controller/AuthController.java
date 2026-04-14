@@ -2,6 +2,7 @@ package com.omnicore.inventory_engine.api.controller;
 
 import com.omnicore.inventory_engine.api.dto.LoginRequest;
 import com.omnicore.inventory_engine.api.dto.LoginResponse;
+import com.omnicore.inventory_engine.api.dto.RefreshRequest;
 import com.omnicore.inventory_engine.api.dto.RegisterRequest;
 import com.omnicore.inventory_engine.api.dto.RegisterResponse;
 import com.omnicore.inventory_engine.domain.service.AuthService;
@@ -29,5 +30,10 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request.tenantId(), request.password(), request.role());
+    }
+
+    @PostMapping("/refresh")
+    public LoginResponse refresh(@Valid @RequestBody RefreshRequest request) {
+        return authService.refresh(request.refreshToken());
     }
 }

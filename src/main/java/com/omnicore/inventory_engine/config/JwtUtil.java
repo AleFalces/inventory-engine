@@ -11,18 +11,20 @@ import java.util.Date;
 
 public class JwtUtil {
 
+    private static final long ACCESS_TOKEN_EXPIRY_MS = 15 * 60 * 1000L; // 15 minutos
+
     private final SecretKey key;
 
     public JwtUtil(String secret) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(String tenantId, TenantRole role) {
+    public String generateAccessToken(String tenantId, TenantRole role) {
         return Jwts.builder()
                 .subject(tenantId)
                 .claim("role", role.name())
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + 86_400_000L))
+                .expiration(new Date(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRY_MS))
                 .signWith(key)
                 .compact();
     }

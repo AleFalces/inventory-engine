@@ -53,8 +53,8 @@ class RbacIntegrationTest {
                 .role(TenantRole.VIEWER)
                 .build());
 
-        adminToken  = jwtUtil.generateToken("admin-tenant",  TenantRole.ADMIN);
-        viewerToken = jwtUtil.generateToken("viewer-tenant", TenantRole.VIEWER);
+        adminToken  = jwtUtil.generateAccessToken("admin-tenant",  TenantRole.ADMIN);
+        viewerToken = jwtUtil.generateAccessToken("viewer-tenant", TenantRole.VIEWER);
     }
 
     // ─── VIEWER puede leer ────────────────────────────────────────────────────

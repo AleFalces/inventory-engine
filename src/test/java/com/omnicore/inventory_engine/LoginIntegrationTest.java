@@ -65,7 +65,7 @@ class LoginIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").isNotEmpty());
+                .andExpect(jsonPath("$.accessToken").isNotEmpty());
     }
 
     // ─── Test 2: Token válido permite acceder a endpoint protegido ────────────
@@ -82,7 +82,7 @@ class LoginIntegrationTest {
 
         String token = new ObjectMapper()
                 .readTree(result.getResponse().getContentAsString())
-                .get("token").asText();
+                .get("accessToken").asText();
 
         mockMvc.perform(post("/api/v1/products")
                         .header("Authorization", "Bearer " + token)
@@ -133,12 +133,12 @@ class LoginIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new LoginRequest("newcorp", "mypassword"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").isNotEmpty())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andReturn();
 
         String token = new ObjectMapper()
                 .readTree(loginResult.getResponse().getContentAsString())
-                .get("token").asText();
+                .get("accessToken").asText();
 
         mockMvc.perform(post("/api/v1/products")
                         .header("Authorization", "Bearer " + token)

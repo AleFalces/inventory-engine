@@ -7,4 +7,5 @@ import com.omnicore.inventory_engine.domain.entity.TenantRole;
 public interface AuthService {
     LoginResponse login(String tenantId, String password);
     RegisterResponse register(String tenantId, String password, TenantRole role);
+    LoginResponse refresh(String refreshToken);
 }
