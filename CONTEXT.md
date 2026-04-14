@@ -89,6 +89,7 @@ Product
 | 6 | Entidad `StockMovement` (trazabilidad de movimientos) | ✅ Completo |
 | 7 | Paginación en `GET /products` | ✅ Completo |
 | 8 | Spring Security + JWT (reemplazar header `X-Tenant-ID`) | ✅ Completo |
+| 9 | Endpoint de login (`POST /auth/login`) | 🔄 En progreso |
 
 ---
 
@@ -171,3 +172,32 @@ else → product.stock = newStock → save() con @Version
 - `tenantId` se extrae del `subject` del JWT (no de un claim custom)
 - Token firmado con HMAC-SHA (HS256), secreto configurable vía `jwt.secret`
 - Sin refresh tokens ni revocación en esta fase
+
+---
+
+## Fase 9 — Endpoint de Login 🔄
+
+**Objetivo**: exponer `POST /auth/login` para que los clientes puedan obtener un JWT real. Actualmente los tokens solo se generan en tests.
+
+### Contrato del endpoint
+
+```
+POST /auth/login
+Body: { "tenantId": "acme", "password": "secret" }
+Response 200: { "token": "<jwt>" }
+Response 401: credenciales inválidas
+```
+
+### Artefactos a entregar
+- Entidad / tabla `Tenant` (id, tenantId, passwordHash) con datos de prueba vía `data.sql`
+- `TenantRepository` — `findByTenantId(String tenantId)`
+- `AuthService.login(tenantId, password)` — valida credenciales y genera JWT con `JwtUtil`
+- DTO `LoginRequest` (record): `tenantId`, `password`
+- DTO `LoginResponse` (record): `token`
+- `AuthController` — `POST /api/v1/auth/login`, público (excluido de `SecurityConfig`)
+- `AuthControllerTest` — casos: login OK → 200 + token, password incorrecta → 401, tenant inexistente → 401
+
+### Decisiones de diseño
+- Contraseñas almacenadas con BCrypt (`PasswordEncoder`)
+- El endpoint `/api/v1/auth/login` se añade a la lista blanca en `SecurityConfig`
+- Sin gestión de usuarios completa — solo credenciales de tenant para obtener JWT
