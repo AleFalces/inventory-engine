@@ -89,7 +89,8 @@ Product
 | 6 | Entidad `StockMovement` (trazabilidad de movimientos) | ✅ Completo |
 | 7 | Paginación en `GET /products` | ✅ Completo |
 | 8 | Spring Security + JWT (reemplazar header `X-Tenant-ID`) | ✅ Completo |
-| 9 | Endpoint de login (`POST /auth/login`) | 🔄 En progreso |
+| 9 | Endpoint de login (`POST /auth/login`) | ✅ Completo |
+| 10 | Registro de tenants (`POST /auth/register`) | 🔄 En progreso |
 
 ---
 
@@ -201,3 +202,34 @@ Response 401: credenciales inválidas
 - Contraseñas almacenadas con BCrypt (`PasswordEncoder`)
 - El endpoint `/api/v1/auth/login` se añade a la lista blanca en `SecurityConfig`
 - Sin gestión de usuarios completa — solo credenciales de tenant para obtener JWT
+
+---
+
+## Fase 10 — Registro de Tenants 🔄
+
+**Objetivo**: exponer `POST /auth/register` para que nuevos tenants puedan registrarse sin acceso directo a la BD. Cierra el ciclo de autenticación self-service.
+
+### Contrato del endpoint
+
+```
+POST /api/v1/auth/register
+Body: { "tenantId": "acme", "password": "secret" }
+Response 201: { "tenantId": "acme" }
+Response 409: tenantId ya registrado
+```
+
+### Artefactos a entregar
+- DTO `RegisterRequest` (record): `tenantId`, `password`
+- DTO `RegisterResponse` (record): `tenantId`
+- Excepción `TenantAlreadyExistsException` → HTTP 409
+- `AuthService.register(tenantId, password)` → `RegisterResponse`
+- `AuthServiceImpl.register()` — hashea password con BCrypt, persiste `Tenant`, lanza excepción si ya existe
+- `AuthController` — `POST /api/v1/auth/register` (público)
+- `GlobalExceptionHandler` — handler 409 para `TenantAlreadyExistsException`
+- Tests unitarios: `AuthControllerTest` + `AuthServiceTest` — casos OK y conflicto
+- Test de integración en `LoginIntegrationTest` — registro + login en secuencia
+
+### Decisiones de diseño
+- El endpoint es público (sin JWT) — se añade a la lista blanca en `SecurityConfig`
+- `tenantId` debe ser único — validado a nivel de BD (`unique = true`) y de servicio
+- No se devuelve token en el registro — el cliente debe hacer login después
