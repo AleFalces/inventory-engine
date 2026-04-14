@@ -4,6 +4,7 @@ import com.omnicore.inventory_engine.domain.entity.Tenant;
 import com.omnicore.inventory_engine.domain.repository.TenantRepository;
 import tools.jackson.databind.ObjectMapper;
 import com.omnicore.inventory_engine.api.dto.LoginRequest;
+import com.omnicore.inventory_engine.api.dto.RegisterRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -111,6 +112,49 @@ class LoginIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // ─── Test 5: register → login → acceso a endpoint protegido ──────────────
+
+    @Test
+    void shouldAllowFullFlowRegisterThenLoginThenAccess() throws Exception {
+        var registerRequest = new RegisterRequest("newcorp", "mypassword");
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.tenantId").value("newcorp"));
+
+        var loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginRequest("newcorp", "mypassword"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").isNotEmpty())
+                .andReturn();
+
+        String token = new ObjectMapper()
+                .readTree(loginResult.getResponse().getContentAsString())
+                .get("token").asText();
+
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sku\":\"SKU-001\",\"name\":\"Widget\",\"stock\":10}"))
+                .andExpect(status().isCreated());
+    }
+
+    // ─── Test 6: registro duplicado → 409 ────────────────────────────────────
+
+    @Test
+    void shouldReturn409WhenRegisteringExistingTenant() throws Exception {
+        var request = new RegisterRequest("acme", "secret");
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").exists());
     }
 }
