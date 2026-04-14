@@ -425,7 +425,7 @@
   <!-- ══ SIDEBAR ══════════════════════════════════════════════ -->
   <aside class="sidebar">
     <div class="sidebar-logo">OmniCore</div>
-    <div class="sidebar-sub">Inventory Engine — Docs v0.6</div>
+    <div class="sidebar-sub">Inventory Engine — Docs v0.8</div>
     <nav>
       <div class="section-title">Introducción</div>
       <a href="#que-es">¿Qué es este proyecto?</a>
@@ -442,12 +442,13 @@
       <a href="#repository">ProductRepository</a>
       <a href="#service">Capa de Servicio</a>
       <a href="#controller">API REST</a>
-      <a href="#tests">Los tests (25)</a>
+      <a href="#tests">Los tests (49)</a>
 
-      <div class="section-title">En progreso</div>
+      <div class="section-title">Fases completadas</div>
       <a href="#fase5">Fase 5 — Ajuste de stock</a>
       <a href="#fase6">Fase 6 — StockMovement</a>
       <a href="#fase7">Fase 7 — Paginación</a>
+      <a href="#fase8">Fase 8 — Spring Security + JWT</a>
 
       <div class="section-title">Comandos</div>
       <a href="#comandos">Referencia rápida</a>
@@ -564,6 +565,11 @@
             <td><strong>Testcontainers</strong></td>
             <td>Levanta una base de datos real en Docker para los tests.</td>
             <td>Los tests son 100% fieles a producción. Sin sorpresas.</td>
+          </tr>
+          <tr>
+            <td><strong>Spring Security + JWT</strong></td>
+            <td>Framework de seguridad + tokens de autenticación firmados.</td>
+            <td>Autenticación stateless. El <code>tenantId</code> se extrae del token, nunca del cliente.</td>
           </tr>
         </tbody>
       </table>
@@ -777,35 +783,49 @@
         &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">InventoryEngineApplication.java</span> &nbsp;<span class="note">← punto de entrada de la app</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">domain/</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">entity/</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">Product.java</span> &nbsp;<span class="note">← la tabla "products" en Java</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">Product.java</span> &nbsp;<span class="note">← la tabla "products" en Java</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">StockMovement.java</span> &nbsp;<span class="note">← trazabilidad de movimientos</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">repository/</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">ProductRepository.java</span> &nbsp;<span class="note">← queries a la base de datos</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductRepository.java</span> &nbsp;<span class="note">← queries a la base de datos</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">StockMovementRepository.java</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">service/</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductService.java</span> &nbsp;<span class="note">← lógica de negocio</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductNotFoundException.java</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductAlreadyExistsException.java</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">InsufficientStockException.java</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">api/</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">controller/</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductController.java</span> &nbsp;<span class="note">← endpoints REST</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">GlobalExceptionHandler.java</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">dto/</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">CreateProductRequest.java</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">UpdateProductRequest.java</span> &nbsp;<span class="note">← nuevo (Fase 4)</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">UpdateProductRequest.java</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">StockAdjustRequest.java</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductResponse.java</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">StockMovementResponse.java</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ErrorResponse.java</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">mapper/</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductMapper.java</span> &nbsp;<span class="note">← MapStruct</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">config/</span> &nbsp;<span class="note">← Fase 8: Spring Security + JWT</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">JwtUtil.java</span> &nbsp;<span class="note">← genera/valida tokens, extrae tenantId</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">JwtAuthenticationFilter.java</span> &nbsp;<span class="note">← valida Bearer token por cada request</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">SecurityConfig.java</span> &nbsp;<span class="note">← cadena stateless, sin CSRF</span><br />
         <br />
         &nbsp;&nbsp;<span class="dir">test/java/com/omnicore/inventory_engine/</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">TestcontainersConfiguration.java</span> &nbsp;<span class="note">← levanta PostgreSQL en Docker</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="new">SecurityIntegrationTest.java</span> &nbsp;<span class="note">← 2 tests: 401 sin token / token inválido</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">config/</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">JwtUtilTest.java</span> &nbsp;<span class="note">← 4 tests unitarios para JwtUtil</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">domain/repository/</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductRepositoryTest.java</span> &nbsp;<span class="note">← 6 tests (2 nuevos en Fase 4)</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductRepositoryTest.java</span> &nbsp;<span class="note">← 8 tests</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">StockMovementRepositoryTest.java</span> &nbsp;<span class="note">← 3 tests</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">domain/service/</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductServiceTest.java</span> &nbsp;<span class="note">← 9 tests (4 nuevos en Fase 4)</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductServiceTest.java</span> &nbsp;<span class="note">← 9 tests</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">api/controller/</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductControllerTest.java</span> &nbsp;<span class="note">← 9 tests (4 nuevos en Fase 4)</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductControllerTest.java</span> &nbsp;<span class="note">← 11 tests (usa @AuthenticationPrincipal)</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">StockMovementControllerTest.java</span> &nbsp;<span class="note">← 1 test</span><br />
         &nbsp;&nbsp;<span class="dir">test/resources/</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">application.properties</span> &nbsp;<span class="note">← config solo para tests (create-drop)</span>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">application.properties</span> &nbsp;<span class="note">← config de tests (create-drop + jwt.secret)</span>
       </div>
 
       <h3>¿Por qué separar en <code>domain</code> y <code>api</code>?</h3>
@@ -1066,7 +1086,7 @@
             <td><code>/api/v1/products/{sku}</code></td>
             <td>Actualizar nombre, descripción y stock</td>
             <td>200 / 404</td>
-            <td><span class="badge badge-yellow">En progreso</span></td>
+            <td><span class="badge badge-green">✓ Listo</span></td>
           </tr>
           <tr>
             <td><span class="badge badge-purple">DELETE</span></td>
@@ -1094,35 +1114,38 @@
             <td><code>/api/v1/products?page=0&amp;size=20</code></td>
             <td>Lista paginada de productos</td>
             <td>200</td>
-            <td><span class="badge badge-yellow">Próxima</span></td>
+            <td><span class="badge badge-green">✓ Listo</span></td>
           </tr>
         </tbody>
       </table>
 
-      <div class="callout callout-warning">
-        <div class="callout-label">Header obligatorio en todos los endpoints</div>
+      <div class="callout callout-tip">
+        <div class="callout-label">Autenticación JWT (Fase 8)</div>
         <p>
-          Todos los requests deben incluir <code>X-Tenant-ID: nombre-empresa</code>.
-          Este es un mecanismo temporal — en la <strong>Phase 4</strong> será reemplazado
-          por extracción automática desde el token JWT del usuario autenticado.
+          Todos los endpoints requieren un token JWT en el header <code>Authorization: Bearer &lt;token&gt;</code>.
+          El servidor extrae el <code>tenantId</code> del <em>subject</em> del token — el cliente nunca lo envía directamente.
+          Sin token o con token inválido: <strong>HTTP 401 Unauthorized</strong>.
         </p>
       </div>
 
       <h3>Ejemplo de uso</h3>
 
-      <pre><code><span class="cm"># Crear un producto</span>
+      <pre><code><span class="cm"># Obtener un token (ejemplo con JwtUtil en dev)</span>
+TOKEN=eyJhbGciOiJIUzI1NiJ9...
+
+<span class="cm"># Crear un producto</span>
 curl -X POST http://localhost:8080/api/v1/products \
-  -H <span class="st">"X-Tenant-ID: empresa-alpha"</span> \
+  -H <span class="st">"Authorization: Bearer $TOKEN"</span> \
   -H <span class="st">"Content-Type: application/json"</span> \
   -d <span class="st">'{"sku":"SKU-001","name":"Widget Pro","stock":100}'</span>
 
-<span class="cm"># Listar productos de la empresa</span>
-curl http://localhost:8080/api/v1/products \
-  -H <span class="st">"X-Tenant-ID: empresa-alpha"</span>
+<span class="cm"># Listar productos (paginado)</span>
+curl "http://localhost:8080/api/v1/products?page=0&size=20" \
+  -H <span class="st">"Authorization: Bearer $TOKEN"</span>
 
 <span class="cm"># Buscar por SKU</span>
 curl http://localhost:8080/api/v1/products/SKU-001 \
-  -H <span class="st">"X-Tenant-ID: empresa-alpha"</span></code></pre>
+  -H <span class="st">"Authorization: Bearer $TOKEN"</span></code></pre>
 
       <h3>Manejo de errores — GlobalExceptionHandler</h3>
 
@@ -1137,6 +1160,11 @@ curl http://localhost:8080/api/v1/products/SKU-001 \
         </thead>
         <tbody>
           <tr>
+            <td><code>Sin token / token inválido</code></td>
+            <td><span class="badge badge-yellow">401</span></td>
+            <td>No se envió Authorization header, o el JWT es inválido / expirado</td>
+          </tr>
+          <tr>
             <td><code>ProductNotFoundException</code></td>
             <td><span class="badge badge-yellow">404</span></td>
             <td>El SKU no existe para ese tenant</td>
@@ -1145,6 +1173,11 @@ curl http://localhost:8080/api/v1/products/SKU-001 \
             <td><code>ProductAlreadyExistsException</code></td>
             <td><span class="badge badge-purple">409</span></td>
             <td>El SKU ya existe para ese tenant</td>
+          </tr>
+          <tr>
+            <td><code>InsufficientStockException</code></td>
+            <td><span class="badge badge-purple">422</span></td>
+            <td>El ajuste dejaría el stock por debajo de 0</td>
           </tr>
           <tr>
             <td><code>MethodArgumentNotValidException</code></td>
@@ -1162,12 +1195,12 @@ curl http://localhost:8080/api/v1/products/SKU-001 \
     <section class="section" id="tests">
       <div class="section-header">
         <div class="section-number">11</div>
-        <h2>Los tests — 39/39 en verde</h2>
+        <h2>Los tests — 49/49 en verde</h2>
       </div>
 
       <p>
-        El proyecto tiene <strong>39 tests</strong> en 5 clases, todos en verde.
-        Cubren las Fases 1 a 6: persistencia, lógica de negocio, API REST completa y trazabilidad de movimientos.
+        El proyecto tiene <strong>49 tests</strong> en 7 clases, todos en verde.
+        Cubren las Fases 1 a 8: persistencia, lógica de negocio, API REST completa, trazabilidad de movimientos, paginación y autenticación JWT.
       </p>
 
       <h3>ProductRepositoryTest — 6 tests <span class="badge badge-green">Integración</span></h3>
@@ -1278,9 +1311,39 @@ curl http://localhost:8080/api/v1/products/SKU-001 \
         <p style="margin-top:0.5rem;"><code>DELETE /{sku}</code> con SKU inexistente devuelve HTTP 404.</p>
       </div>
 
+      <h3 style="margin-top:1.5rem;">JwtUtilTest — 4 tests <span class="badge badge-blue">Unitario</span></h3>
+      <p style="margin-bottom:0.75rem;">Sin Spring context. Verifica la lógica de generación y validación de tokens.</p>
+      <div class="card">
+        <h4><span class="badge badge-blue">TEST</span> &nbsp; shouldExtractTenantIdFromValidToken</h4>
+        <p style="margin-top:0.5rem;">Genera un token y verifica que <code>extractTenantId()</code> devuelve el subject correcto.</p>
+      </div>
+      <div class="card">
+        <h4><span class="badge badge-blue">TEST</span> &nbsp; shouldReturnTrueForValidToken</h4>
+        <p style="margin-top:0.5rem;">Token recién generado pasa <code>isValid()</code>.</p>
+      </div>
+      <div class="card">
+        <h4><span class="badge badge-blue">TEST</span> &nbsp; shouldReturnFalseForMalformedToken</h4>
+        <p style="margin-top:0.5rem;">Un string que no es JWT devuelve <code>false</code> en <code>isValid()</code>.</p>
+      </div>
+      <div class="card">
+        <h4><span class="badge badge-blue">TEST</span> &nbsp; shouldReturnFalseForTokenWithWrongSecret</h4>
+        <p style="margin-top:0.5rem;">Token firmado con otro secreto no pasa la validación. <strong>Test de seguridad clave.</strong></p>
+      </div>
+
+      <h3 style="margin-top:1.5rem;">SecurityIntegrationTest — 2 tests <span class="badge badge-green">Integración</span></h3>
+      <p style="margin-bottom:0.75rem;">Usa <code>@SpringBootTest</code> + Testcontainers. Verifica la cadena de seguridad real.</p>
+      <div class="card">
+        <h4><span class="badge badge-green">TEST</span> &nbsp; shouldReturn401WhenNoAuthorizationHeader</h4>
+        <p style="margin-top:0.5rem;">Request sin header <code>Authorization</code> → HTTP 401.</p>
+      </div>
+      <div class="card">
+        <h4><span class="badge badge-green">TEST</span> &nbsp; shouldReturn401WhenInvalidTokenProvided</h4>
+        <p style="margin-top:0.5rem;">Request con <code>Bearer this.is.not.a.valid.jwt</code> → HTTP 401.</p>
+      </div>
+
       <div class="callout callout-tip">
         <div class="callout-label">Correr todos los tests</div>
-        <p>Necesitás Docker corriendo (para Testcontainers). Luego: <code>./mvnw test</code> → <strong>39/39 en verde</strong>.</p>
+        <p>Necesitás Docker corriendo (para Testcontainers). Luego: <code>./mvnw test</code> → <strong>49/49 en verde</strong>.</p>
       </div>
     </section>
 
@@ -1402,15 +1465,11 @@ stockMovementRepository.<span class="fn">save</span>(<span class="cl">StockMovem
     <!-- ══ FASE 7 — PAGINACIÓN ════════════════════════════════════ -->
     <section class="section" id="fase7">
       <div class="section-header">
-        <div class="section-number" style="background:rgba(251,191,36,0.15);border-color:rgba(251,191,36,0.4);color:var(--yellow);">7</div>
-        <h2>Fase 7 — Paginación <span class="badge badge-yellow">Próxima</span></h2>
+        <div class="section-number" style="background:rgba(52,211,153,0.15);border-color:rgba(52,211,153,0.4);color:var(--green);">7</div>
+        <h2>Fase 7 — Paginación <span class="badge badge-green">✓ Completa</span></h2>
       </div>
 
-      <p>
-        Hoy <code>GET /products</code> devuelve todos los productos sin límite. Con miles de registros,
-        esto genera respuestas lentas y alto consumo de memoria. La paginación devuelve solo una
-        "página" de resultados a la vez.
-      </p>
+      <p>Fase completada con <strong>43/43 tests en verde</strong>. <code>GET /products</code> soporta paginación, tamaño de página configurable y ordenamiento.</p>
 
       <div class="callout callout-why">
         <div class="callout-label">¿Por qué paginar?</div>
@@ -1421,7 +1480,7 @@ stockMovementRepository.<span class="fn">save</span>(<span class="cl">StockMovem
         </p>
       </div>
 
-      <h3>Endpoint actualizado</h3>
+      <h3>Endpoint</h3>
       <pre><code>GET /api/v1/products?page=0&size=20&sort=name,asc
 
 <span class="cm">// Respuesta: Page&lt;ProductResponse&gt;</span>
@@ -1433,16 +1492,98 @@ stockMovementRepository.<span class="fn">save</span>(<span class="cl">StockMovem
   "number": 0
 }</code></pre>
 
-      <h3>Tests a escribir (TDD — RED primero)</h3>
+      <h3>Cambios implementados</h3>
       <table>
-        <thead><tr><th>Clase</th><th>Test</th><th>Qué verifica</th></tr></thead>
+        <thead><tr><th>Capa</th><th>Cambio</th></tr></thead>
         <tbody>
-          <tr><td>RepositoryTest</td><td>shouldReturnPagedProducts</td><td>Solo devuelve la cantidad pedida por página</td></tr>
-          <tr><td>RepositoryTest</td><td>shouldReturnSecondPage</td><td>Offset correcto en la segunda página</td></tr>
-          <tr><td>ServiceTest</td><td>shouldReturnPagedResultsForTenant</td><td>Service devuelve <code>Page&lt;ProductResponse&gt;</code></td></tr>
-          <tr><td>ControllerTest</td><td>shouldReturnPagedProductList</td><td><code>GET /products?page=0&size=2</code> → JSON con <code>content</code> y <code>totalElements</code></td></tr>
+          <tr><td>Repository</td><td><code>Page&lt;Product&gt; findAllByTenantId(String tenantId, Pageable pageable)</code></td></tr>
+          <tr><td>Service</td><td><code>findAllByTenant(String tenantId, Pageable pageable)</code> → <code>Page&lt;ProductResponse&gt;</code></td></tr>
+          <tr><td>Controller</td><td><code>@PageableDefault(size=20, sort="name") Pageable</code> — default: página 0, 20 elementos, orden por nombre</td></tr>
         </tbody>
       </table>
+    </section>
+
+    <hr />
+
+    <!-- ══ FASE 8 — SPRING SECURITY + JWT ════════════════════════════ -->
+    <section class="section" id="fase8">
+      <div class="section-header">
+        <div class="section-number" style="background:rgba(52,211,153,0.15);border-color:rgba(52,211,153,0.4);color:var(--green);">8</div>
+        <h2>Fase 8 — Spring Security + JWT <span class="badge badge-green">✓ Completa</span></h2>
+      </div>
+
+      <p>Fase completada con <strong>49/49 tests en verde</strong>. Se reemplazó el header <code>X-Tenant-ID</code> por autenticación real con tokens JWT firmados.</p>
+
+      <h3>¿Qué es un JWT?</h3>
+      <p>
+        Un <strong>JWT</strong> (JSON Web Token) es un string en formato <code>header.payload.signature</code>
+        que el servidor firma con un secreto. El cliente lo incluye en cada request. El servidor
+        verifica la firma — si es válida, extrae el <code>tenantId</code> del <em>subject</em>
+        sin necesidad de consultar la base de datos.
+      </p>
+
+      <pre><code><span class="cm">// Estructura del JWT que genera JwtUtil</span>
+{
+  <span class="st">"sub"</span>: <span class="st">"empresa-alpha"</span>,   <span class="cm">← tenantId aquí</span>
+  <span class="st">"iat"</span>: <span class="nu">1712700000</span>,
+  <span class="st">"exp"</span>: <span class="nu">1712786400</span>       <span class="cm">← expira en 24 horas</span>
+}</code></pre>
+
+      <h3>Flujo de autenticación</h3>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>1. Cliente envía request con <code>Authorization: Bearer &lt;token&gt;</code></h4>
+            <p>El token JWT va en el header HTTP en cada petición.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>2. <code>JwtAuthenticationFilter</code> intercepta el request</h4>
+            <p>Extrae el token, llama a <code>JwtUtil.isValid()</code>. Si falla → 401. Si pasa → continúa.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>3. El <code>tenantId</code> se guarda en el <code>SecurityContext</code></h4>
+            <p>Se crea un <code>UsernamePasswordAuthenticationToken</code> con el <code>tenantId</code> como principal.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>4. El controller recibe el <code>tenantId</code> automáticamente</h4>
+            <p><code>@AuthenticationPrincipal String tenantId</code> — Spring lo inyecta desde el contexto de seguridad.</p>
+          </div>
+        </div>
+      </div>
+
+      <h3>JwtAuthenticationFilter</h3>
+      <pre><code><span class="an">@Override</span>
+<span class="kw">protected void</span> <span class="fn">doFilterInternal</span>(<span class="cl">HttpServletRequest</span> request, ...) {
+    <span class="cl">String</span> header = request.<span class="fn">getHeader</span>(<span class="st">"Authorization"</span>);
+    <span class="kw">if</span> (header != <span class="kw">null</span> &amp;&amp; header.<span class="fn">startsWith</span>(<span class="st">"Bearer "</span>)) {
+        <span class="cl">String</span> token = header.<span class="fn">substring</span>(<span class="nu">7</span>);
+        <span class="kw">if</span> (jwtUtil.<span class="fn">isValid</span>(token)) {
+            <span class="cl">String</span> tenantId = jwtUtil.<span class="fn">extractTenantId</span>(token);
+            <span class="kw">var</span> auth = <span class="kw">new</span> <span class="cl">UsernamePasswordAuthenticationToken</span>(tenantId, <span class="kw">null</span>, <span class="cl">List</span>.of());
+            <span class="cl">SecurityContextHolder</span>.<span class="fn">getContext</span>().<span class="fn">setAuthentication</span>(auth);
+        }
+    }
+    chain.<span class="fn">doFilter</span>(request, response);   <span class="cm">// sin auth → Spring devuelve 401</span>
+}</code></pre>
+
+      <div class="callout callout-warning">
+        <div class="callout-label">Importante — jwt.secret en producción</div>
+        <p>
+          El secreto en <code>application.properties</code> es solo para desarrollo.
+          En producción debe ser una variable de entorno con al menos 256 bits de entropía.
+          Nunca commitear el secreto real al repositorio.
+        </p>
+      </div>
     </section>
 
     <hr />
@@ -1477,7 +1618,7 @@ stockMovementRepository.<span class="fn">save</span>(<span class="cl">StockMovem
           </tr>
           <tr>
             <td>Probar un endpoint</td>
-            <td><code>curl -H "X-Tenant-ID: demo" http://localhost:8080/api/v1/products</code></td>
+            <td><code>curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/products</code></td>
           </tr>
           <tr>
             <td>Ver el historial de commits</td>
@@ -1496,7 +1637,7 @@ stockMovementRepository.<span class="fn">save</span>(<span class="cl">StockMovem
       <p>
         OmniCore Inventory Engine — Documentación interna &nbsp;·&nbsp;
         Actualizado: Abril 2026 &nbsp;·&nbsp;
-        <span class="badge badge-green">v0.5 — Fase 4 completa: 25/25 tests en verde</span>
+        <span class="badge badge-green">v0.8 — Fase 8 completa: 49/49 tests en verde</span>
       </p>
       <p style="margin-top:0.5rem;">
         Este archivo se actualiza con cada fase del proyecto. Si encontrás algo desactualizado,
