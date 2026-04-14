@@ -1616,18 +1616,114 @@ stockMovementRepository.<span class="fn">save</span>(<span class="cl">StockMovem
         <div class="section-number" style="background:rgba(52,211,153,0.15);border-color:rgba(52,211,153,0.4);color:var(--green);">9</div>
         <h2>Fase 9 — Login endpoint <span class="badge badge-green">✓ Completa</span></h2>
       </div>
-      <p>Fase completada con <strong>62/62 tests en verde</strong>. Se expone <code>POST /api/v1/auth/login</code> para que los clientes puedan obtener un JWT sin acceso directo a la base de datos.</p>
-      <table>
-        <thead><tr><th>Artefacto</th><th>Detalle</th></tr></thead>
-        <tbody>
-          <tr><td><code>Tenant</code></td><td>Entidad JPA con <code>tenantId</code> y <code>passwordHash</code> (BCrypt)</td></tr>
-          <tr><td><code>TenantRepository</code></td><td><code>findByTenantId()</code> + <code>existsByTenantId()</code></td></tr>
-          <tr><td><code>AuthService</code> / <code>AuthServiceImpl</code></td><td>Valida credenciales con BCrypt, genera JWT</td></tr>
-          <tr><td><code>POST /api/v1/auth/login</code></td><td>Público. Body: <code>{"tenantId","password"}</code> → <code>{"token":"..."}</code></td></tr>
-          <tr><td><code>InvalidCredentialsException</code></td><td>→ HTTP 401</td></tr>
-          <tr><td><code>PasswordEncoder</code> bean</td><td>BCrypt añadido a <code>SecurityConfig</code></td></tr>
-        </tbody>
-      </table>
+
+      <p>Fase completada con <strong>62/62 tests en verde</strong>. Hasta este punto los JWT solo existían en los tests. Esta fase expone <code>POST /api/v1/auth/login</code> para que cualquier cliente real pueda obtener un token.</p>
+
+      <div class="callout callout-why">
+        <div class="callout-label">El problema que resuelve</div>
+        <p>
+          En la Fase 8 implementamos validación de JWT, pero nunca explicamos cómo un cliente
+          obtiene ese token. Era como poner una cerradura sin dar la llave. Esta fase agrega
+          el endpoint que <em>emite</em> tokens a cambio de credenciales válidas.
+        </p>
+      </div>
+
+      <h3>La entidad Tenant — ¿qué es una "empresa cliente"?</h3>
+      <p>
+        Un <strong>Tenant</strong> es una empresa que usa nuestro sistema. En la base de datos
+        guardamos su identificador y su contraseña <em>hasheada</em> — nunca la contraseña en texto plano.
+      </p>
+
+      <pre><code><span class="an">@Entity</span>
+<span class="an">@Table</span>(name = <span class="st">"tenants"</span>)
+<span class="kw">public class</span> <span class="cl">Tenant</span> {
+    <span class="an">@Id @GeneratedValue</span>
+    <span class="kw">private</span> <span class="cl">Long</span>   id;
+
+    <span class="an">@Column</span>(name = <span class="st">"tenant_id"</span>, nullable = <span class="kw">false</span>, unique = <span class="kw">true</span>)
+    <span class="kw">private</span> <span class="cl">String</span> tenantId;      <span class="cm">// "empresa-alpha"</span>
+
+    <span class="an">@Column</span>(name = <span class="st">"password_hash"</span>, nullable = <span class="kw">false</span>)
+    <span class="kw">private</span> <span class="cl">String</span> passwordHash;  <span class="cm">// "$2a$10$..." ← BCrypt, nunca texto plano</span>
+}</code></pre>
+
+      <div class="callout callout-why">
+        <div class="callout-label">¿Por qué no guardamos la contraseña directamente?</div>
+        <p>
+          Si la base de datos se filtra, el atacante obtiene los hashes — no las contraseñas reales.
+          <strong>BCrypt</strong> es un algoritmo de hashing diseñado para ser deliberadamente lento,
+          lo que hace inviable el ataque por fuerza bruta. En otros lenguajes como Node.js usarías
+          <code>bcrypt.hash()</code>; en Spring usamos <code>passwordEncoder.encode()</code> — mismo concepto.
+        </p>
+      </div>
+
+      <h3>¿Qué hace AuthService.login()?</h3>
+      <p>La lógica de login es simple pero hay que hacerla en el orden correcto:</p>
+
+      <pre><code><span class="kw">public</span> <span class="cl">LoginResponse</span> <span class="fn">login</span>(<span class="cl">String</span> tenantId, <span class="cl">String</span> password) {
+
+    <span class="cm">// 1. Buscar el tenant en la BD — si no existe, lanzamos 401</span>
+    <span class="cm">//    (NO decimos "tenant no encontrado" para no dar pistas al atacante)</span>
+    <span class="kw">var</span> tenant = tenantRepository.<span class="fn">findByTenantId</span>(tenantId)
+            .<span class="fn">orElseThrow</span>(<span class="cl">InvalidCredentialsException</span>::<span class="kw">new</span>);
+
+    <span class="cm">// 2. Verificar la contraseña contra el hash guardado en BD</span>
+    <span class="kw">if</span> (!passwordEncoder.<span class="fn">matches</span>(password, tenant.<span class="fn">getPasswordHash</span>())) {
+        <span class="kw">throw new</span> <span class="cl">InvalidCredentialsException</span>();  <span class="cm">// → HTTP 401</span>
+    }
+
+    <span class="cm">// 3. Credenciales válidas → generar y devolver el JWT</span>
+    <span class="kw">return new</span> <span class="cl">LoginResponse</span>(jwtUtil.<span class="fn">generateToken</span>(tenantId, tenant.<span class="fn">getRole</span>()));
+}</code></pre>
+
+      <div class="callout callout-warning">
+        <div class="callout-label">Seguridad: siempre el mismo mensaje de error</div>
+        <p>
+          Tanto si el tenant no existe como si la contraseña es incorrecta, devolvemos
+          <strong>la misma excepción</strong> (<code>InvalidCredentialsException → 401</code>).
+          Si dijésemos "tenant no encontrado" vs "contraseña incorrecta", estaríamos confirmando
+          qué tenantIds existen — un vector de ataque llamado <em>user enumeration</em>.
+        </p>
+      </div>
+
+      <h3>Flujo completo de una autenticación</h3>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>1. Cliente: <code>POST /api/v1/auth/login</code></h4>
+            <p>Body: <code>{"tenantId": "empresa-alpha", "password": "mipassword"}</code></p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>2. <code>AuthController</code> recibe el request y llama a <code>AuthService.login()</code></h4>
+            <p>El controller no tiene lógica — delega todo al servicio.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>3. <code>AuthServiceImpl</code> busca el tenant y valida con BCrypt</h4>
+            <p><code>passwordEncoder.matches("mipassword", "$2a$10$...")</code> — compara la contraseña con el hash.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>4. <code>JwtUtil.generateToken()</code> crea y firma el token</h4>
+            <p>El JWT incluye <code>tenantId</code> como subject y el <code>role</code> como claim. Expira en 24h.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <h4>5. Respuesta: <code>{"token": "eyJhbGci..."}</code></h4>
+            <p>El cliente guarda este token y lo incluye en cada request siguiente como <code>Authorization: Bearer &lt;token&gt;</code>.</p>
+          </div>
+        </div>
+      </div>
     </section>
 
     <hr />
@@ -1638,16 +1734,73 @@ stockMovementRepository.<span class="fn">save</span>(<span class="cl">StockMovem
         <div class="section-number" style="background:rgba(52,211,153,0.15);border-color:rgba(52,211,153,0.4);color:var(--green);">10</div>
         <h2>Fase 10 — Registro de tenants <span class="badge badge-green">✓ Completa</span></h2>
       </div>
-      <p>Fase completada con <strong>68/68 tests en verde</strong>. Cierra el ciclo de autenticación: <code>register → login → JWT → acceso</code>, todo sin tocar la base de datos directamente.</p>
-      <table>
-        <thead><tr><th>Artefacto</th><th>Detalle</th></tr></thead>
-        <tbody>
-          <tr><td><code>POST /api/v1/auth/register</code></td><td>Público. Body: <code>{"tenantId","password","role"}</code> → 201 <code>{"tenantId":"..."}</code></td></tr>
-          <tr><td><code>RegisterRequest</code> / <code>RegisterResponse</code></td><td>Records con validación</td></tr>
-          <tr><td><code>TenantAlreadyExistsException</code></td><td>→ HTTP 409</td></tr>
-          <tr><td><code>AuthService.register()</code></td><td>Hashea con BCrypt, persiste <code>Tenant</code>, lanza excepción si ya existe</td></tr>
-        </tbody>
-      </table>
+
+      <p>Fase completada con <strong>68/68 tests en verde</strong>. Cierra el ciclo de autenticación: un nuevo cliente puede registrarse y acceder a la API sin intervención manual en la base de datos.</p>
+
+      <div class="callout callout-why">
+        <div class="callout-label">¿Por qué no devolvemos el token al registrarse?</div>
+        <p>
+          Es una decisión de diseño deliberada. Separar registro de login tiene ventajas:
+          el registro puede requerir validación adicional en el futuro (email de confirmación,
+          aprobación manual, etc.). El cliente sabe que debe hacer dos llamadas: primero
+          <code>/register</code>, después <code>/login</code>. Es más explícito y extensible.
+        </p>
+      </div>
+
+      <h3>DTOs como Java Records — inmutabilidad by design</h3>
+      <p>
+        En Java usamos <strong>Records</strong> para los DTOs de request/response.
+        Si venís de Python pensá en <code>dataclass(frozen=True)</code>; si venís de TypeScript,
+        pensá en una <code>interface</code> con todos los campos <code>readonly</code>.
+        Una vez creado el record, sus campos no se pueden modificar.
+      </p>
+
+      <pre><code><span class="cm">// Record = clase inmutable con constructor, getters y equals/hashCode automáticos</span>
+<span class="kw">public record</span> <span class="cl">RegisterRequest</span>(
+    <span class="an">@NotBlank</span> <span class="cl">String</span>     tenantId,   <span class="cm">// acceso: request.tenantId()</span>
+    <span class="an">@NotBlank @Size</span>(min = <span class="nu">8</span>) <span class="cl">String</span> password,
+    <span class="cl">TenantRole</span> role                   <span class="cm">// null → default VIEWER</span>
+) {
+    <span class="cm">// Constructor de conveniencia — si no pasás role, es VIEWER</span>
+    <span class="kw">public</span> <span class="cl">RegisterRequest</span>(<span class="cl">String</span> tenantId, <span class="cl">String</span> password) {
+        <span class="kw">this</span>(tenantId, password, <span class="cl">TenantRole</span>.VIEWER);
+    }
+}</code></pre>
+
+      <h3>Qué hace AuthService.register()</h3>
+      <pre><code><span class="kw">public</span> <span class="cl">RegisterResponse</span> <span class="fn">register</span>(<span class="cl">String</span> tenantId, <span class="cl">String</span> password, <span class="cl">TenantRole</span> role) {
+
+    <span class="cm">// 1. ¿Ya existe? → 409 Conflict</span>
+    <span class="kw">if</span> (tenantRepository.<span class="fn">existsByTenantId</span>(tenantId)) {
+        <span class="kw">throw new</span> <span class="cl">TenantAlreadyExistsException</span>(tenantId);
+    }
+
+    <span class="cm">// 2. Hashear la contraseña antes de guardar — nunca texto plano</span>
+    <span class="kw">var</span> tenant = <span class="cl">Tenant</span>.builder()
+            .tenantId(tenantId)
+            .passwordHash(passwordEncoder.<span class="fn">encode</span>(password))  <span class="cm">// BCrypt</span>
+            .role(role)
+            .build();
+
+    tenantRepository.<span class="fn">save</span>(tenant);                <span class="cm">// INSERT en tabla tenants</span>
+    <span class="kw">return new</span> <span class="cl">RegisterResponse</span>(tenantId);         <span class="cm">// 201 Created</span>
+}</code></pre>
+
+      <h3>El flujo completo que ahora es posible</h3>
+      <pre><code><span class="cm"># 1. Registrarse</span>
+POST /api/v1/auth/register
+{"tenantId": "mi-empresa", "password": "mipassword123", "role": "ADMIN"}
+→ 201 {"tenantId": "mi-empresa"}
+
+<span class="cm"># 2. Obtener token</span>
+POST /api/v1/auth/login
+{"tenantId": "mi-empresa", "password": "mipassword123"}
+→ 200 {"token": "eyJhbGci..."}
+
+<span class="cm"># 3. Usar la API</span>
+GET /api/v1/products
+Authorization: Bearer eyJhbGci...
+→ 200 {"content": [], "totalElements": 0, ...}</code></pre>
     </section>
 
     <hr />
@@ -1658,18 +1811,70 @@ stockMovementRepository.<span class="fn">save</span>(<span class="cl">StockMovem
         <div class="section-number" style="background:rgba(52,211,153,0.15);border-color:rgba(52,211,153,0.4);color:var(--green);">11</div>
         <h2>Fase 11 — Bean Validation <span class="badge badge-green">✓ Completa</span></h2>
       </div>
-      <p>Fase completada con <strong>73/73 tests en verde</strong>. Inputs inválidos son rechazados con 400 antes de llegar al servicio.</p>
+
+      <p>Fase completada con <strong>73/73 tests en verde</strong>. Antes de esta fase era posible registrarse con <code>tenantId: ""</code> o crear un producto con stock <code>-500</code>. Bean Validation lo impide.</p>
+
+      <div class="callout callout-why">
+        <div class="callout-label">¿Por qué validar en el DTO y no en el servicio?</div>
+        <p>
+          El servicio debería tener lógica de <em>negocio</em>, no de formato. Validar que un string
+          no esté vacío es responsabilidad de la frontera del sistema — donde entra el dato del exterior.
+          Si lo validamos en el DTO con anotaciones, Spring lo rechaza automáticamente con 400 y
+          ni siquiera llega al servicio. Es más limpio y más fácil de testear.
+        </p>
+      </div>
+
+      <h3>Las anotaciones disponibles</h3>
       <table>
-        <thead><tr><th>DTO</th><th>Campo</th><th>Restricción</th></tr></thead>
+        <thead><tr><th>Anotación</th><th>Qué valida</th><th>Ejemplo de uso</th></tr></thead>
         <tbody>
-          <tr><td><code>CreateProductRequest</code></td><td><code>sku</code>, <code>name</code></td><td><code>@NotBlank</code></td></tr>
-          <tr><td><code>CreateProductRequest</code></td><td><code>stock</code></td><td><code>@NotNull @Min(0)</code></td></tr>
-          <tr><td><code>StockAdjustRequest</code></td><td><code>delta</code></td><td><code>@NotNull</code></td></tr>
-          <tr><td><code>StockAdjustRequest</code></td><td><code>reason</code></td><td><code>@NotBlank</code></td></tr>
-          <tr><td><code>LoginRequest</code></td><td><code>tenantId</code>, <code>password</code></td><td><code>@NotBlank</code></td></tr>
-          <tr><td><code>RegisterRequest</code></td><td><code>password</code></td><td><code>@NotBlank @Size(min=8)</code></td></tr>
+          <tr><td><code>@NotNull</code></td><td>El campo no puede ser <code>null</code></td><td>campos Integer, objetos</td></tr>
+          <tr><td><code>@NotBlank</code></td><td>String no nulo y no vacío (incluye espacios)</td><td><code>sku</code>, <code>name</code>, <code>tenantId</code></td></tr>
+          <tr><td><code>@Min(0)</code></td><td>Número ≥ al valor indicado</td><td><code>stock</code> no puede ser negativo</td></tr>
+          <tr><td><code>@Size(min=8)</code></td><td>String de al menos N caracteres</td><td><code>password</code> mínimo 8 chars</td></tr>
         </tbody>
       </table>
+
+      <h3>¿Cómo se activa? — la clave está en <code>@Valid</code></h3>
+      <p>
+        Las anotaciones en el DTO solas no hacen nada. Necesitás añadir <code>@Valid</code>
+        delante del <code>@RequestBody</code> en el controller para que Spring las procese.
+      </p>
+
+      <pre><code><span class="cm">// Sin @Valid → Spring ignora las anotaciones del DTO</span>
+<span class="an">@PostMapping</span>
+<span class="kw">public</span> <span class="cl">LoginResponse</span> <span class="fn">login</span>(<span class="an">@RequestBody</span> <span class="cl">LoginRequest</span> request) { ... }
+
+<span class="cm">// Con @Valid → Spring valida antes de llamar al método</span>
+<span class="an">@PostMapping</span>
+<span class="kw">public</span> <span class="cl">LoginResponse</span> <span class="fn">login</span>(<span class="an">@Valid @RequestBody</span> <span class="cl">LoginRequest</span> request) { ... }</code></pre>
+
+      <h3>¿Qué pasa cuando falla la validación?</h3>
+      <p>
+        Spring lanza una <code>MethodArgumentNotValidException</code> automáticamente.
+        Nuestro <code>GlobalExceptionHandler</code> la captura y devuelve un 400 con el campo
+        problemático. Este handler ya existía desde la Fase 3 — no fue necesario cambiarlo.
+      </p>
+
+      <pre><code><span class="cm">// En GlobalExceptionHandler — ya existía, captura la excepción de validación</span>
+<span class="an">@ExceptionHandler</span>(<span class="cl">MethodArgumentNotValidException</span>.class)
+<span class="an">@ResponseStatus</span>(<span class="cl">HttpStatus</span>.BAD_REQUEST)
+<span class="kw">public</span> <span class="cl">ErrorResponse</span> <span class="fn">handleValidation</span>(<span class="cl">MethodArgumentNotValidException</span> ex) {
+    <span class="cl">String</span> message = ex.<span class="fn">getBindingResult</span>().<span class="fn">getFieldErrors</span>().stream()
+            .map(e -> e.<span class="fn">getField</span>() + <span class="st">": "</span> + e.<span class="fn">getDefaultMessage</span>())
+            .findFirst()
+            .orElse(<span class="st">"Invalid request"</span>);
+    <span class="kw">return new</span> <span class="cl">ErrorResponse</span>(message);  <span class="cm">// → {"message": "password: size must be between 8 and ..."}</span>
+}</code></pre>
+
+      <div class="callout callout-warning">
+        <div class="callout-label">Records y anotaciones de validación</div>
+        <p>
+          Los Java Records generan su constructor automáticamente a partir de los componentes
+          declarados. Las anotaciones de validación se colocan directamente en los componentes
+          del record — Spring las respeta igual que en una clase normal.
+        </p>
+      </div>
     </section>
 
     <hr />
@@ -1680,20 +1885,93 @@ stockMovementRepository.<span class="fn">save</span>(<span class="cl">StockMovem
         <div class="section-number" style="background:rgba(52,211,153,0.15);border-color:rgba(52,211,153,0.4);color:var(--green);">12</div>
         <h2>Fase 12 — RBAC: roles por tenant <span class="badge badge-green">✓ Completa</span></h2>
       </div>
-      <p>Fase completada con <strong>80/80 tests en verde</strong>. Introduce roles <code>ADMIN</code> y <code>VIEWER</code> embebidos en el JWT. VIEWER solo puede leer; ADMIN puede escribir.</p>
+
+      <p>Fase completada con <strong>80/80 tests en verde</strong>. Introduce los roles <code>ADMIN</code> y <code>VIEWER</code>. Un VIEWER autenticado que intente crear un producto recibe un 403 — está autenticado, pero no autorizado.</p>
+
+      <div class="callout callout-why">
+        <div class="callout-label">Autenticación vs Autorización — la diferencia clave</div>
+        <p>
+          <strong>Autenticación</strong>: ¿quién sos? (JWT válido → sabemos que sos "empresa-alpha")<br/>
+          <strong>Autorización</strong>: ¿qué podés hacer? (¿tenés el rol ADMIN para crear productos?)<br/><br/>
+          Hasta la Fase 11 solo teníamos autenticación. Cualquier tenant autenticado podía hacer
+          cualquier cosa. RBAC (<em>Role-Based Access Control</em>) agrega la segunda capa.
+        </p>
+      </div>
+
+      <h3>Paso 1 — El enum TenantRole</h3>
+      <p>
+        En Java, un <code>enum</code> es un tipo que solo puede tener valores predefinidos.
+        Es la forma idiomática de representar un conjunto fijo de opciones — como roles.
+      </p>
+      <pre><code><span class="kw">public enum</span> <span class="cl">TenantRole</span> {
+    ADMIN,   <span class="cm">// puede leer y escribir</span>
+    VIEWER   <span class="cm">// solo puede leer</span>
+}</code></pre>
+
+      <h3>Paso 2 — El rol viaja dentro del JWT</h3>
+      <p>
+        El rol se guarda en la BD junto al tenant. Cuando hace login, se embebe en el JWT
+        como un <strong>claim</strong> — un campo extra en el payload del token.
+        Así el servidor sabe el rol sin consultar la BD en cada request.
+      </p>
+      <pre><code><span class="cm">// Payload del JWT después de la Fase 12</span>
+{
+  <span class="st">"sub"</span>: <span class="st">"empresa-alpha"</span>,   <span class="cm">← tenantId (subject)</span>
+  <span class="st">"role"</span>: <span class="st">"ADMIN"</span>,          <span class="cm">← rol embebido como claim</span>
+  <span class="st">"iat"</span>: <span class="nu">1712700000</span>,
+  <span class="st">"exp"</span>: <span class="nu">1712786400</span>
+}</code></pre>
+
+      <h3>Paso 3 — El filtro extrae el rol y lo registra como autoridad</h3>
+      <p>
+        En Spring Security, los permisos se modelan como <code>GrantedAuthority</code>.
+        El filtro JWT ahora extrae el rol del token y lo convierte en una autoridad con
+        el prefijo <code>ROLE_</code> que Spring espera.
+      </p>
+      <pre><code><span class="cm">// JwtAuthenticationFilter — actualizado en Fase 12</span>
+<span class="cl">String</span> tenantId = jwtUtil.<span class="fn">extractTenantId</span>(token);
+<span class="cl">String</span> role     = <span class="st">"ROLE_"</span> + jwtUtil.<span class="fn">extractRole</span>(token).name(); <span class="cm">// "ROLE_ADMIN"</span>
+
+<span class="kw">var</span> auth = <span class="kw">new</span> <span class="cl">UsernamePasswordAuthenticationToken</span>(
+    tenantId, <span class="kw">null</span>,
+    <span class="cl">List</span>.of(<span class="kw">new</span> <span class="cl">SimpleGrantedAuthority</span>(role))  <span class="cm">// ← aquí va la autoridad</span>
+);</code></pre>
+
+      <h3>Paso 4 — @PreAuthorize protege los endpoints de escritura</h3>
+      <p>
+        Con <code>@EnableMethodSecurity</code> en <code>SecurityConfig</code>, podemos usar
+        <code>@PreAuthorize</code> en cualquier método del controller. Spring evalúa la
+        expresión <em>antes</em> de llamar al método — si falla, lanza 403 automáticamente.
+      </p>
+      <pre><code><span class="an">@PostMapping</span>
+<span class="an">@ResponseStatus</span>(<span class="cl">HttpStatus</span>.CREATED)
+<span class="an">@PreAuthorize</span>(<span class="st">"hasRole('ADMIN')"</span>)   <span class="cm">// ← VIEWER recibe 403 antes de llegar aquí</span>
+<span class="kw">public</span> <span class="cl">ProductResponse</span> <span class="fn">create</span>(<span class="an">@AuthenticationPrincipal</span> <span class="cl">String</span> tenantId,
+                                 <span class="an">@Valid @RequestBody</span> <span class="cl">CreateProductRequest</span> request) {
+    <span class="kw">return</span> productService.<span class="fn">createProduct</span>(tenantId, request);
+}</code></pre>
+
+      <h3>Tabla de permisos por rol</h3>
       <table>
         <thead><tr><th>Endpoint</th><th>ADMIN</th><th>VIEWER</th></tr></thead>
         <tbody>
-          <tr><td><code>GET /products</code>, <code>GET /products/{sku}</code></td><td>✅</td><td>✅</td></tr>
-          <tr><td><code>POST /products</code></td><td>✅</td><td>403</td></tr>
-          <tr><td><code>PUT /products/{sku}</code></td><td>✅</td><td>403</td></tr>
-          <tr><td><code>DELETE /products/{sku}</code></td><td>✅</td><td>403</td></tr>
-          <tr><td><code>POST /products/{sku}/adjust</code></td><td>✅</td><td>403</td></tr>
+          <tr><td><code>GET /products</code></td><td>✅ 200</td><td>✅ 200</td></tr>
+          <tr><td><code>GET /products/{sku}</code></td><td>✅ 200</td><td>✅ 200</td></tr>
+          <tr><td><code>GET /products/{sku}/movements</code></td><td>✅ 200</td><td>✅ 200</td></tr>
+          <tr><td><code>POST /products</code></td><td>✅ 201</td><td>🚫 403</td></tr>
+          <tr><td><code>PUT /products/{sku}</code></td><td>✅ 200</td><td>🚫 403</td></tr>
+          <tr><td><code>DELETE /products/{sku}</code></td><td>✅ 204</td><td>🚫 403</td></tr>
+          <tr><td><code>POST /products/{sku}/adjust</code></td><td>✅ 200</td><td>🚫 403</td></tr>
         </tbody>
       </table>
-      <div class="callout callout-warning" style="margin-top:1rem;">
-        <div class="callout-label">Implementación</div>
-        <p>El rol se almacena en la tabla <code>tenants</code> y se embebe en el JWT como claim <code>role</code>. El filtro lo extrae y lo registra como <code>GrantedAuthority</code>. Los endpoints de escritura usan <code>@PreAuthorize("hasRole('ADMIN')")</code>.</p>
+
+      <div class="callout callout-warning">
+        <div class="callout-label">401 vs 403 — ¿cuál es la diferencia?</div>
+        <p>
+          <strong>401 Unauthorized</strong>: no hay token, o el token es inválido. El cliente <em>no está autenticado</em>.<br/>
+          <strong>403 Forbidden</strong>: hay token válido, pero el rol no tiene permiso. El cliente está autenticado pero <em>no autorizado</em>.<br/><br/>
+          La diferencia importa: ante un 401 el cliente debería volver a hacer login; ante un 403 debería mostrar "no tenés permisos".
+        </p>
       </div>
     </section>
 
