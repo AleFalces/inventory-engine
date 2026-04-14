@@ -40,7 +40,7 @@ public class SecurityConfig {
                 .httpBasic(basic -> basic.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/login").permitAll()
+                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/register").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(

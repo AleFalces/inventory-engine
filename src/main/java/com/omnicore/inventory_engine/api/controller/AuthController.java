@@ -2,11 +2,12 @@ package com.omnicore.inventory_engine.api.controller;
 
 import com.omnicore.inventory_engine.api.dto.LoginRequest;
 import com.omnicore.inventory_engine.api.dto.LoginResponse;
+import com.omnicore.inventory_engine.api.dto.RegisterRequest;
+import com.omnicore.inventory_engine.api.dto.RegisterResponse;
 import com.omnicore.inventory_engine.domain.service.AuthService;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -21,5 +22,11 @@ public class AuthController {
     @PostMapping("/login")
     public LoginResponse login(@RequestBody LoginRequest request) {
         return authService.login(request.tenantId(), request.password());
+    }
+
+    @PostMapping("/register")
+    @ResponseStatus(HttpStatus.CREATED)
+    public RegisterResponse register(@RequestBody RegisterRequest request) {
+        return authService.register(request.tenantId(), request.password());
     }
 }

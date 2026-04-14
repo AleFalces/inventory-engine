@@ -12,8 +12,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
 
+import com.omnicore.inventory_engine.api.dto.RegisterRequest;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -53,6 +57,28 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.login("unknown", "secret"))
                 .isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    // ─── register() ───────────────────────────────────────────────────────────
+
+    @Test
+    void shouldRegisterNewTenant() {
+        when(tenantRepository.existsByTenantId("acme")).thenReturn(false);
+        when(passwordEncoder.encode("secret")).thenReturn("$2a$hashed");
+        when(tenantRepository.save(any())).thenReturn(
+                Tenant.builder().tenantId("acme").passwordHash("$2a$hashed").build());
+
+        var response = authService.register("acme", "secret");
+
+        assertThat(response.tenantId()).isEqualTo("acme");
+    }
+
+    @Test
+    void shouldThrowWhenTenantAlreadyExists() {
+        when(tenantRepository.existsByTenantId("acme")).thenReturn(true);
+
+        assertThatThrownBy(() -> authService.register("acme", "secret"))
+                .isInstanceOf(TenantAlreadyExistsException.class);
     }
 
     @Test

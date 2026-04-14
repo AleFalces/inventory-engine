@@ -3,8 +3,11 @@ package com.omnicore.inventory_engine.api.controller;
 import tools.jackson.databind.ObjectMapper;
 import com.omnicore.inventory_engine.api.dto.LoginRequest;
 import com.omnicore.inventory_engine.api.dto.LoginResponse;
+import com.omnicore.inventory_engine.api.dto.RegisterRequest;
+import com.omnicore.inventory_engine.api.dto.RegisterResponse;
 import com.omnicore.inventory_engine.domain.service.AuthService;
 import com.omnicore.inventory_engine.domain.service.InvalidCredentialsException;
+import com.omnicore.inventory_engine.domain.service.TenantAlreadyExistsException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,6 +21,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import org.springframework.http.HttpStatus;
 
 @ExtendWith(MockitoExtension.class)
 class AuthControllerTest {
@@ -81,6 +86,36 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // ─── POST /api/v1/auth/register ───────────────────────────────────────────
+
+    @Test
+    void shouldRegisterTenantAndReturn201() throws Exception {
+        var request  = new RegisterRequest("acme", "secret");
+        var response = new RegisterResponse("acme");
+
+        when(authService.register("acme", "secret")).thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.tenantId").value("acme"));
+    }
+
+    @Test
+    void shouldReturn409WhenTenantAlreadyExists() throws Exception {
+        var request = new RegisterRequest("acme", "secret");
+
+        when(authService.register("acme", "secret"))
+                .thenThrow(new TenantAlreadyExistsException("acme"));
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").exists());
     }
 }
