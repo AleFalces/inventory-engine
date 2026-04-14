@@ -1,3 +1,8 @@
 package com.omnicore.inventory_engine.api.dto;
 
-public record LoginRequest(String tenantId, String password) {}
+import jakarta.validation.constraints.NotBlank;
+
+public record LoginRequest(
+        @NotBlank String tenantId,
+        @NotBlank String password
+) {}

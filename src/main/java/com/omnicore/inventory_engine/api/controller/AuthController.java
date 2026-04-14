@@ -5,6 +5,7 @@ import com.omnicore.inventory_engine.api.dto.LoginResponse;
 import com.omnicore.inventory_engine.api.dto.RegisterRequest;
 import com.omnicore.inventory_engine.api.dto.RegisterResponse;
 import com.omnicore.inventory_engine.domain.service.AuthService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,13 +21,13 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public LoginResponse login(@RequestBody LoginRequest request) {
+    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request.tenantId(), request.password());
     }
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public RegisterResponse register(@RequestBody RegisterRequest request) {
+    public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request.tenantId(), request.password());
     }
 }

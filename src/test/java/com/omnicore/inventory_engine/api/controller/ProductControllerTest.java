@@ -254,6 +254,35 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.message").exists());
     }
 
+    // ─── Validación de entrada ────────────────────────────────────────────────
+
+    @Test
+    void shouldReturn400WhenCreateRequestHasBlankSku() throws Exception {
+        mockMvc.perform(post("/api/v1/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sku\":\"\",\"name\":\"Widget\",\"stock\":10}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void shouldReturn400WhenCreateRequestHasNegativeStock() throws Exception {
+        mockMvc.perform(post("/api/v1/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sku\":\"SKU-001\",\"name\":\"Widget\",\"stock\":-1}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void shouldReturn400WhenAdjustRequestHasBlankReason() throws Exception {
+        mockMvc.perform(post("/api/v1/products/SKU-001/adjust")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"delta\":10,\"reason\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
     @Test
     void shouldReturn422WhenStockWouldGoBelowZero() throws Exception {
         var request = new StockAdjustRequest(-999, "OUT");

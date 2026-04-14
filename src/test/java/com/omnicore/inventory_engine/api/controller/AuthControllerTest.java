@@ -93,10 +93,10 @@ class AuthControllerTest {
 
     @Test
     void shouldRegisterTenantAndReturn201() throws Exception {
-        var request  = new RegisterRequest("acme", "secret");
+        var request  = new RegisterRequest("acme", "supersecret");
         var response = new RegisterResponse("acme");
 
-        when(authService.register("acme", "secret")).thenReturn(response);
+        when(authService.register("acme", "supersecret")).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -107,15 +107,35 @@ class AuthControllerTest {
 
     @Test
     void shouldReturn409WhenTenantAlreadyExists() throws Exception {
-        var request = new RegisterRequest("acme", "secret");
+        var request = new RegisterRequest("acme", "supersecret");
 
-        when(authService.register("acme", "secret"))
+        when(authService.register("acme", "supersecret"))
                 .thenThrow(new TenantAlreadyExistsException("acme"));
 
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // ─── Validación de entrada ────────────────────────────────────────────────
+
+    @Test
+    void shouldReturn400WhenLoginRequestHasBlankTenantId() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tenantId\":\"\",\"password\":\"secret\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void shouldReturn400WhenRegisterPasswordIsTooShort() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tenantId\":\"acme\",\"password\":\"123\"}"))
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").exists());
     }
 }

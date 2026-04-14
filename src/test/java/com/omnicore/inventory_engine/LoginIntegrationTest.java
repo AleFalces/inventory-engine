@@ -149,7 +149,7 @@ class LoginIntegrationTest {
 
     @Test
     void shouldReturn409WhenRegisteringExistingTenant() throws Exception {
-        var request = new RegisterRequest("acme", "secret");
+        var request = new RegisterRequest("acme", "supersecret");
 
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
