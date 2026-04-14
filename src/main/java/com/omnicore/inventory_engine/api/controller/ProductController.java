@@ -8,6 +8,7 @@ import com.omnicore.inventory_engine.api.dto.UpdateProductRequest;
 import com.omnicore.inventory_engine.domain.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -28,6 +29,7 @@ public class ProductController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('ADMIN')")
     public ProductResponse create(
             @AuthenticationPrincipal String tenantId,
             @Valid @RequestBody CreateProductRequest request) {
@@ -49,6 +51,7 @@ public class ProductController {
     }
 
     @PutMapping("/{sku}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ProductResponse update(
             @AuthenticationPrincipal String tenantId,
             @PathVariable String sku,
@@ -58,6 +61,7 @@ public class ProductController {
 
     @DeleteMapping("/{sku}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMIN')")
     public void delete(
             @AuthenticationPrincipal String tenantId,
             @PathVariable String sku) {
@@ -72,6 +76,7 @@ public class ProductController {
     }
 
     @PostMapping("/{sku}/adjust")
+    @PreAuthorize("hasRole('ADMIN')")
     public ProductResponse adjust(
             @AuthenticationPrincipal String tenantId,
             @PathVariable String sku,

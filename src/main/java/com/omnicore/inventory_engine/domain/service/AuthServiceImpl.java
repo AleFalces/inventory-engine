@@ -3,6 +3,7 @@ package com.omnicore.inventory_engine.domain.service;
 import com.omnicore.inventory_engine.api.dto.LoginResponse;
 import com.omnicore.inventory_engine.api.dto.RegisterResponse;
 import com.omnicore.inventory_engine.domain.entity.Tenant;
+import com.omnicore.inventory_engine.domain.entity.TenantRole;
 import com.omnicore.inventory_engine.config.JwtUtil;
 import com.omnicore.inventory_engine.domain.repository.TenantRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,18 +35,19 @@ public class AuthServiceImpl implements AuthService {
             throw new InvalidCredentialsException();
         }
 
-        return new LoginResponse(jwtUtil.generateToken(tenantId));
+        return new LoginResponse(jwtUtil.generateToken(tenantId, tenant.getRole()));
     }
 
     @Override
     @Transactional
-    public RegisterResponse register(String tenantId, String password) {
+    public RegisterResponse register(String tenantId, String password, TenantRole role) {
         if (tenantRepository.existsByTenantId(tenantId)) {
             throw new TenantAlreadyExistsException(tenantId);
         }
         var tenant = Tenant.builder()
                 .tenantId(tenantId)
                 .passwordHash(passwordEncoder.encode(password))
+                .role(role)
                 .build();
         tenantRepository.save(tenant);
         return new RegisterResponse(tenantId);

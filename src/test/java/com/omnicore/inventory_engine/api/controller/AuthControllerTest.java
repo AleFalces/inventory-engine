@@ -18,11 +18,11 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
-import org.springframework.http.HttpStatus;
 
 @ExtendWith(MockitoExtension.class)
 class AuthControllerTest {
@@ -96,7 +96,7 @@ class AuthControllerTest {
         var request  = new RegisterRequest("acme", "supersecret");
         var response = new RegisterResponse("acme");
 
-        when(authService.register("acme", "supersecret")).thenReturn(response);
+        when(authService.register(eq("acme"), eq("supersecret"), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -109,7 +109,7 @@ class AuthControllerTest {
     void shouldReturn409WhenTenantAlreadyExists() throws Exception {
         var request = new RegisterRequest("acme", "supersecret");
 
-        when(authService.register("acme", "supersecret"))
+        when(authService.register(eq("acme"), eq("supersecret"), any()))
                 .thenThrow(new TenantAlreadyExistsException("acme"));
 
         mockMvc.perform(post("/api/v1/auth/register")

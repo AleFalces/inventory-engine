@@ -21,4 +21,9 @@ public class Tenant {
 
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private TenantRole role = TenantRole.VIEWER;
 }

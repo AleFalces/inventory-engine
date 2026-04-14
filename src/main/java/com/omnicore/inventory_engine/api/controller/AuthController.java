@@ -28,6 +28,6 @@ public class AuthController {
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
-        return authService.register(request.tenantId(), request.password());
+        return authService.register(request.tenantId(), request.password(), request.role());
     }
 }

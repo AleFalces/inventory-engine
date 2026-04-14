@@ -91,8 +91,8 @@ Product
 | 8 | Spring Security + JWT (reemplazar header `X-Tenant-ID`) | ✅ Completo |
 | 9 | Endpoint de login (`POST /auth/login`) | ✅ Completo |
 | 10 | Registro de tenants (`POST /auth/register`) | ✅ Completo |
-| 11 | Validación de entrada (Bean Validation) | 🔲 Pendiente |
-| 12 | RBAC — roles por tenant (ADMIN / VIEWER) | 🔲 Pendiente |
+| 11 | Validación de entrada (Bean Validation) | ✅ Completo |
+| 12 | RBAC — roles por tenant (ADMIN / VIEWER) | 🔄 En progreso |
 
 ---
 

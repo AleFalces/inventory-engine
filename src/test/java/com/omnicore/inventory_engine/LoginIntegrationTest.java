@@ -1,6 +1,7 @@
 package com.omnicore.inventory_engine;
 
 import com.omnicore.inventory_engine.domain.entity.Tenant;
+import com.omnicore.inventory_engine.domain.entity.TenantRole;
 import com.omnicore.inventory_engine.domain.repository.TenantRepository;
 import tools.jackson.databind.ObjectMapper;
 import com.omnicore.inventory_engine.api.dto.LoginRequest;
@@ -50,6 +51,7 @@ class LoginIntegrationTest {
         tenantRepository.save(Tenant.builder()
                 .tenantId("acme")
                 .passwordHash(passwordEncoder.encode("secret"))
+                .role(TenantRole.ADMIN)
                 .build());
     }
 
@@ -119,7 +121,7 @@ class LoginIntegrationTest {
 
     @Test
     void shouldAllowFullFlowRegisterThenLoginThenAccess() throws Exception {
-        var registerRequest = new RegisterRequest("newcorp", "mypassword");
+        var registerRequest = new RegisterRequest("newcorp", "mypassword", TenantRole.ADMIN);
 
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

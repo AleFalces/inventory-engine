@@ -12,7 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
 
-import com.omnicore.inventory_engine.api.dto.RegisterRequest;
+import com.omnicore.inventory_engine.domain.entity.TenantRole;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -44,7 +44,7 @@ class AuthServiceTest {
 
         when(tenantRepository.findByTenantId("acme")).thenReturn(Optional.of(tenant));
         when(passwordEncoder.matches("secret", "$2a$hashed")).thenReturn(true);
-        when(jwtUtil.generateToken("acme")).thenReturn("jwt.token.here");
+        when(jwtUtil.generateToken(eq("acme"), any())).thenReturn("jwt.token.here");
 
         var response = authService.login("acme", "secret");
 
@@ -68,7 +68,7 @@ class AuthServiceTest {
         when(tenantRepository.save(any())).thenReturn(
                 Tenant.builder().tenantId("acme").passwordHash("$2a$hashed").build());
 
-        var response = authService.register("acme", "secret");
+        var response = authService.register("acme", "secret", TenantRole.VIEWER);
 
         assertThat(response.tenantId()).isEqualTo("acme");
     }
@@ -77,7 +77,7 @@ class AuthServiceTest {
     void shouldThrowWhenTenantAlreadyExists() {
         when(tenantRepository.existsByTenantId("acme")).thenReturn(true);
 
-        assertThatThrownBy(() -> authService.register("acme", "secret"))
+        assertThatThrownBy(() -> authService.register("acme", "secret", TenantRole.VIEWER))
                 .isInstanceOf(TenantAlreadyExistsException.class);
     }
 
