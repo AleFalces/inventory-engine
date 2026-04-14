@@ -425,7 +425,7 @@
   <!-- ══ SIDEBAR ══════════════════════════════════════════════ -->
   <aside class="sidebar">
     <div class="sidebar-logo">OmniCore</div>
-    <div class="sidebar-sub">Inventory Engine — Docs v0.8</div>
+    <div class="sidebar-sub">Inventory Engine — Docs v1.2</div>
     <nav>
       <div class="section-title">Introducción</div>
       <a href="#que-es">¿Qué es este proyecto?</a>
@@ -442,13 +442,17 @@
       <a href="#repository">ProductRepository</a>
       <a href="#service">Capa de Servicio</a>
       <a href="#controller">API REST</a>
-      <a href="#tests">Los tests (49)</a>
+      <a href="#tests">Los tests (80)</a>
 
       <div class="section-title">Fases completadas</div>
       <a href="#fase5">Fase 5 — Ajuste de stock</a>
       <a href="#fase6">Fase 6 — StockMovement</a>
       <a href="#fase7">Fase 7 — Paginación</a>
       <a href="#fase8">Fase 8 — Spring Security + JWT</a>
+      <a href="#fase9">Fase 9 — Login endpoint</a>
+      <a href="#fase10">Fase 10 — Registro de tenants</a>
+      <a href="#fase11">Fase 11 — Bean Validation</a>
+      <a href="#fase12">Fase 12 — RBAC (roles)</a>
 
       <div class="section-title">Comandos</div>
       <a href="#comandos">Referencia rápida</a>
@@ -569,7 +573,17 @@
           <tr>
             <td><strong>Spring Security + JWT</strong></td>
             <td>Framework de seguridad + tokens de autenticación firmados.</td>
-            <td>Autenticación stateless. El <code>tenantId</code> se extrae del token, nunca del cliente.</td>
+            <td>Autenticación stateless. El <code>tenantId</code> y el <code>role</code> se extraen del token, nunca del cliente.</td>
+          </tr>
+          <tr>
+            <td><strong>Bean Validation</strong></td>
+            <td>Anotaciones <code>@NotBlank</code>, <code>@Min</code>, <code>@Size</code> en los DTOs.</td>
+            <td>Inputs inválidos son rechazados con 400 antes de llegar al servicio.</td>
+          </tr>
+          <tr>
+            <td><strong>RBAC (Method Security)</strong></td>
+            <td>Roles <code>ADMIN</code> / <code>VIEWER</code> embebidos en el JWT.</td>
+            <td>VIEWER solo puede leer. ADMIN puede escribir. Controlado con <code>@PreAuthorize</code>.</td>
           </tr>
         </tbody>
       </table>
@@ -806,23 +820,31 @@
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ErrorResponse.java</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">mapper/</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductMapper.java</span> &nbsp;<span class="note">← MapStruct</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">config/</span> &nbsp;<span class="note">← Fase 8: Spring Security + JWT</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">JwtUtil.java</span> &nbsp;<span class="note">← genera/valida tokens, extrae tenantId</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">JwtAuthenticationFilter.java</span> &nbsp;<span class="note">← valida Bearer token por cada request</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">SecurityConfig.java</span> &nbsp;<span class="note">← cadena stateless, sin CSRF</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">config/</span> &nbsp;<span class="note">← Fases 8–12: Security, JWT, RBAC</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">JwtUtil.java</span> &nbsp;<span class="note">← genera/valida tokens, extrae tenantId y role</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">JwtAuthenticationFilter.java</span> &nbsp;<span class="note">← valida Bearer token, puebla authorities</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">SecurityConfig.java</span> &nbsp;<span class="note">← cadena stateless, RBAC, lista blanca auth</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">domain/entity/</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">Tenant.java</span> &nbsp;<span class="note">← credenciales + rol del tenant</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">TenantRole.java</span> &nbsp;<span class="note">← enum ADMIN / VIEWER (Fase 12)</span><br />
         <br />
         &nbsp;&nbsp;<span class="dir">test/java/com/omnicore/inventory_engine/</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">TestcontainersConfiguration.java</span> &nbsp;<span class="note">← levanta PostgreSQL en Docker</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;<span class="new">SecurityIntegrationTest.java</span> &nbsp;<span class="note">← 2 tests: 401 sin token / token inválido</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">SecurityIntegrationTest.java</span> &nbsp;<span class="note">← 2 tests: 401 sin token / token inválido</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">LoginIntegrationTest.java</span> &nbsp;<span class="note">← 6 tests: login, register, flujo completo</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="new">RbacIntegrationTest.java</span> &nbsp;<span class="note">← 6 tests: ADMIN vs VIEWER (Fase 12)</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">config/</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="new">JwtUtilTest.java</span> &nbsp;<span class="note">← 4 tests unitarios para JwtUtil</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">JwtUtilTest.java</span> &nbsp;<span class="note">← 5 tests unitarios para JwtUtil</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">domain/repository/</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductRepositoryTest.java</span> &nbsp;<span class="note">← 8 tests</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductRepositoryTest.java</span> &nbsp;<span class="note">← 10 tests</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">StockMovementRepositoryTest.java</span> &nbsp;<span class="note">← 3 tests</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">TenantRepositoryTest.java</span> &nbsp;<span class="note">← 3 tests</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">domain/service/</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductServiceTest.java</span> &nbsp;<span class="note">← 9 tests</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductServiceTest.java</span> &nbsp;<span class="note">← 15 tests</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">AuthServiceTest.java</span> &nbsp;<span class="note">← 5 tests</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;<span class="dir">api/controller/</span><br />
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductControllerTest.java</span> &nbsp;<span class="note">← 11 tests (usa @AuthenticationPrincipal)</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">ProductControllerTest.java</span> &nbsp;<span class="note">← 16 tests (@PreAuthorize + @AuthenticationPrincipal)</span><br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">AuthControllerTest.java</span> &nbsp;<span class="note">← 7 tests: login, register, validación</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">StockMovementControllerTest.java</span> &nbsp;<span class="note">← 1 test</span><br />
         &nbsp;&nbsp;<span class="dir">test/resources/</span><br />
         &nbsp;&nbsp;&nbsp;&nbsp;<span class="file">application.properties</span> &nbsp;<span class="note">← config de tests (create-drop + jwt.secret)</span>
@@ -1588,6 +1610,95 @@ stockMovementRepository.<span class="fn">save</span>(<span class="cl">StockMovem
 
     <hr />
 
+    <!-- ══ FASE 9 — LOGIN ENDPOINT ═══════════════════════════════════════════ -->
+    <section class="section" id="fase9">
+      <div class="section-header">
+        <div class="section-number" style="background:rgba(52,211,153,0.15);border-color:rgba(52,211,153,0.4);color:var(--green);">9</div>
+        <h2>Fase 9 — Login endpoint <span class="badge badge-green">✓ Completa</span></h2>
+      </div>
+      <p>Fase completada con <strong>62/62 tests en verde</strong>. Se expone <code>POST /api/v1/auth/login</code> para que los clientes puedan obtener un JWT sin acceso directo a la base de datos.</p>
+      <table>
+        <thead><tr><th>Artefacto</th><th>Detalle</th></tr></thead>
+        <tbody>
+          <tr><td><code>Tenant</code></td><td>Entidad JPA con <code>tenantId</code> y <code>passwordHash</code> (BCrypt)</td></tr>
+          <tr><td><code>TenantRepository</code></td><td><code>findByTenantId()</code> + <code>existsByTenantId()</code></td></tr>
+          <tr><td><code>AuthService</code> / <code>AuthServiceImpl</code></td><td>Valida credenciales con BCrypt, genera JWT</td></tr>
+          <tr><td><code>POST /api/v1/auth/login</code></td><td>Público. Body: <code>{"tenantId","password"}</code> → <code>{"token":"..."}</code></td></tr>
+          <tr><td><code>InvalidCredentialsException</code></td><td>→ HTTP 401</td></tr>
+          <tr><td><code>PasswordEncoder</code> bean</td><td>BCrypt añadido a <code>SecurityConfig</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <hr />
+
+    <!-- ══ FASE 10 — REGISTRO DE TENANTS ════════════════════════════════════ -->
+    <section class="section" id="fase10">
+      <div class="section-header">
+        <div class="section-number" style="background:rgba(52,211,153,0.15);border-color:rgba(52,211,153,0.4);color:var(--green);">10</div>
+        <h2>Fase 10 — Registro de tenants <span class="badge badge-green">✓ Completa</span></h2>
+      </div>
+      <p>Fase completada con <strong>68/68 tests en verde</strong>. Cierra el ciclo de autenticación: <code>register → login → JWT → acceso</code>, todo sin tocar la base de datos directamente.</p>
+      <table>
+        <thead><tr><th>Artefacto</th><th>Detalle</th></tr></thead>
+        <tbody>
+          <tr><td><code>POST /api/v1/auth/register</code></td><td>Público. Body: <code>{"tenantId","password","role"}</code> → 201 <code>{"tenantId":"..."}</code></td></tr>
+          <tr><td><code>RegisterRequest</code> / <code>RegisterResponse</code></td><td>Records con validación</td></tr>
+          <tr><td><code>TenantAlreadyExistsException</code></td><td>→ HTTP 409</td></tr>
+          <tr><td><code>AuthService.register()</code></td><td>Hashea con BCrypt, persiste <code>Tenant</code>, lanza excepción si ya existe</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <hr />
+
+    <!-- ══ FASE 11 — BEAN VALIDATION ════════════════════════════════════════ -->
+    <section class="section" id="fase11">
+      <div class="section-header">
+        <div class="section-number" style="background:rgba(52,211,153,0.15);border-color:rgba(52,211,153,0.4);color:var(--green);">11</div>
+        <h2>Fase 11 — Bean Validation <span class="badge badge-green">✓ Completa</span></h2>
+      </div>
+      <p>Fase completada con <strong>73/73 tests en verde</strong>. Inputs inválidos son rechazados con 400 antes de llegar al servicio.</p>
+      <table>
+        <thead><tr><th>DTO</th><th>Campo</th><th>Restricción</th></tr></thead>
+        <tbody>
+          <tr><td><code>CreateProductRequest</code></td><td><code>sku</code>, <code>name</code></td><td><code>@NotBlank</code></td></tr>
+          <tr><td><code>CreateProductRequest</code></td><td><code>stock</code></td><td><code>@NotNull @Min(0)</code></td></tr>
+          <tr><td><code>StockAdjustRequest</code></td><td><code>delta</code></td><td><code>@NotNull</code></td></tr>
+          <tr><td><code>StockAdjustRequest</code></td><td><code>reason</code></td><td><code>@NotBlank</code></td></tr>
+          <tr><td><code>LoginRequest</code></td><td><code>tenantId</code>, <code>password</code></td><td><code>@NotBlank</code></td></tr>
+          <tr><td><code>RegisterRequest</code></td><td><code>password</code></td><td><code>@NotBlank @Size(min=8)</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <hr />
+
+    <!-- ══ FASE 12 — RBAC ════════════════════════════════════════════════════ -->
+    <section class="section" id="fase12">
+      <div class="section-header">
+        <div class="section-number" style="background:rgba(52,211,153,0.15);border-color:rgba(52,211,153,0.4);color:var(--green);">12</div>
+        <h2>Fase 12 — RBAC: roles por tenant <span class="badge badge-green">✓ Completa</span></h2>
+      </div>
+      <p>Fase completada con <strong>80/80 tests en verde</strong>. Introduce roles <code>ADMIN</code> y <code>VIEWER</code> embebidos en el JWT. VIEWER solo puede leer; ADMIN puede escribir.</p>
+      <table>
+        <thead><tr><th>Endpoint</th><th>ADMIN</th><th>VIEWER</th></tr></thead>
+        <tbody>
+          <tr><td><code>GET /products</code>, <code>GET /products/{sku}</code></td><td>✅</td><td>✅</td></tr>
+          <tr><td><code>POST /products</code></td><td>✅</td><td>403</td></tr>
+          <tr><td><code>PUT /products/{sku}</code></td><td>✅</td><td>403</td></tr>
+          <tr><td><code>DELETE /products/{sku}</code></td><td>✅</td><td>403</td></tr>
+          <tr><td><code>POST /products/{sku}/adjust</code></td><td>✅</td><td>403</td></tr>
+        </tbody>
+      </table>
+      <div class="callout callout-warning" style="margin-top:1rem;">
+        <div class="callout-label">Implementación</div>
+        <p>El rol se almacena en la tabla <code>tenants</code> y se embebe en el JWT como claim <code>role</code>. El filtro lo extrae y lo registra como <code>GrantedAuthority</code>. Los endpoints de escritura usan <code>@PreAuthorize("hasRole('ADMIN')")</code>.</p>
+      </div>
+    </section>
+
+    <hr />
+
     <!-- ══ 10. COMANDOS ══════════════════════════════════════════ -->
     <section class="section" id="comandos">
       <div class="section-header">
@@ -1637,7 +1748,7 @@ stockMovementRepository.<span class="fn">save</span>(<span class="cl">StockMovem
       <p>
         OmniCore Inventory Engine — Documentación interna &nbsp;·&nbsp;
         Actualizado: Abril 2026 &nbsp;·&nbsp;
-        <span class="badge badge-green">v0.8 — Fase 8 completa: 49/49 tests en verde</span>
+        <span class="badge badge-green">v1.2 — Fase 12 completa: 80/80 tests en verde</span>
       </p>
       <p style="margin-top:0.5rem;">
         Este archivo se actualiza con cada fase del proyecto. Si encontrás algo desactualizado,
