@@ -93,6 +93,7 @@ Product
 | 10 | Registro de tenants (`POST /auth/register`) | ✅ Completo |
 | 11 | Validación de entrada (Bean Validation) | ✅ Completo |
 | 12 | RBAC — roles por tenant (ADMIN / VIEWER) | ✅ Completo |
+| 13 | Refresh tokens | 🔄 En progreso |
 
 ---
 
@@ -175,6 +176,47 @@ else → product.stock = newStock → save() con @Version
 - `tenantId` se extrae del `subject` del JWT (no de un claim custom)
 - Token firmado con HMAC-SHA (HS256), secreto configurable vía `jwt.secret`
 - Sin refresh tokens ni revocación en esta fase
+
+---
+
+## Fase 13 — Refresh Tokens 🔄
+
+**Objetivo**: permitir que los clientes renueven su JWT sin volver a enviar usuario y contraseña. El access token expira en 15 minutos; el refresh token dura 7 días.
+
+### Problema actual
+El JWT de la Fase 8 expira en 24h. Cuando expira, el cliente debe volver a hacer login. Con refresh tokens, el flujo es transparente: el cliente usa el refresh token para obtener un nuevo access token sin interrumpir la sesión.
+
+### Contrato de endpoints
+
+```
+POST /api/v1/auth/refresh
+Body:    { "refreshToken": "<token>" }
+Response 200: { "accessToken": "<nuevo jwt>", "refreshToken": "<nuevo refresh>" }
+Response 401: refresh token inválido o expirado
+```
+
+### Modelo de datos
+- Entidad `RefreshToken` (id, token, tenantId, expiresAt, revoked)
+- Los refresh tokens se almacenan en BD — permite revocarlos individualmente
+- Cada uso genera un nuevo par (access + refresh) — rotación de tokens
+
+### Artefactos a entregar
+- Entidad `RefreshToken` con `@Column(nullable=false)` en todos los campos críticos
+- `RefreshTokenRepository` — `findByToken()`, `deleteByTenantId()`
+- `JwtUtil.generateAccessToken()` — expira en 15 minutos
+- `JwtUtil.generateRefreshToken()` — UUID aleatorio (no JWT), almacenado en BD
+- `AuthService.login()` — ahora devuelve `{ accessToken, refreshToken }`
+- `AuthService.refresh()` — valida refresh token en BD, rota el par
+- `LoginResponse` — actualizado: `accessToken` + `refreshToken`
+- `RefreshRequest` (record): `refreshToken`
+- `AuthController` — `POST /api/v1/auth/refresh` (público)
+- Tests: `AuthControllerTest`, `AuthServiceTest`, integración en `LoginIntegrationTest`
+
+### Decisiones de diseño
+- Refresh token = UUID aleatorio guardado en BD (no JWT) — permite revocación
+- Access token expira en 15 min (antes 24h)
+- Rotación obligatoria: cada refresh invalida el token anterior
+- Campo `revoked` en `RefreshToken` para revocación sin borrar el registro
 
 ---
 
